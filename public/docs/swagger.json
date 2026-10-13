@@ -1,0 +1,185 @@
+{
+    "openapi": "3.0.0",
+    "info": {
+        "title": "myTerrain API Documentation",
+        "version": "1.0.0",
+        "description": "Documentation interactive des APIs de myTerrain"
+    },
+    "servers": [
+        {
+            "url": "http://192.168.7.140:8000/api/v1",
+            "description": "Serveur Local"
+        }
+    ],
+    "components": {
+        "securitySchemes": {
+            "bearerAuth": {
+                "type": "http",
+                "scheme": "bearer",
+                "bearerFormat": "JWT"
+            }
+        }
+    },
+    "paths": {
+        "/auth/login": {
+            "post": {
+                "summary": "Connexion utilisateur",
+                "tags": [
+                    "Authentification"
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "properties": {
+                                    "email": {
+                                        "type": "string",
+                                        "example": "admin@myterrain.com"
+                                    },
+                                    "password": {
+                                        "type": "string",
+                                        "example": "password"
+                                    }
+                                }
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Connexion r\u00e9ussie"
+                    },
+                    "401": {
+                        "description": "Identifiants invalides"
+                    }
+                }
+            }
+        },
+        "/auth/me": {
+            "get": {
+                "summary": "Obtenir les informations de l'utilisateur connect\u00e9",
+                "tags": [
+                    "Authentification"
+                ],
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Succ\u00e8s"
+                    }
+                }
+            }
+        },
+        "/fields": {
+            "get": {
+                "summary": "R\u00e9cup\u00e9rer la liste des terrains",
+                "tags": [
+                    "Terrains"
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Op\u00e9ration r\u00e9ussie"
+                    }
+                }
+            }
+        },
+        "/owner/fields": {
+            "get": {
+                "summary": "R\u00e9cup\u00e9rer les terrains du propri\u00e9taire connect\u00e9",
+                "tags": [
+                    "Terrains Propri\u00e9taire"
+                ],
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Op\u00e9ration r\u00e9ussie"
+                    }
+                }
+            }
+        },
+        "/reservations": {
+            "get": {
+                "summary": "R\u00e9cup\u00e9rer toutes les r\u00e9servations",
+                "tags": [
+                    "R\u00e9servations"
+                ],
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Op\u00e9ration r\u00e9ussie"
+                    }
+                }
+            },
+            "post": {
+                "summary": "Cr\u00e9er une nouvelle r\u00e9servation",
+                "tags": [
+                    "R\u00e9servations"
+                ],
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "type": "object",
+                                "properties": {
+                                    "field_id": {
+                                        "type": "integer",
+                                        "example": 1
+                                    },
+                                    "time_slot_id": {
+                                        "type": "integer",
+                                        "example": 5
+                                    }
+                                }
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "201": {
+                        "description": "R\u00e9servation cr\u00e9\u00e9e avec succ\u00e8s"
+                    },
+                    "400": {
+                        "description": "Donn\u00e9es invalides"
+                    }
+                }
+            }
+        },
+        "/owner/reservations": {
+            "get": {
+                "summary": "R\u00e9cup\u00e9rer les r\u00e9servations des terrains du propri\u00e9taire",
+                "tags": [
+                    "R\u00e9servations Propri\u00e9taire"
+                ],
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Op\u00e9ration r\u00e9ussie"
+                    }
+                }
+            }
+        }
+    }
+}
