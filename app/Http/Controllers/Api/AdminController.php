@@ -48,7 +48,7 @@ class AdminController extends Controller
             'name'                  => ['required', 'string', 'max:100'],
             'email'                 => ['required', 'email', 'max:150', 'unique:users'],
             'phone'                 => ['nullable', 'string', 'max:20'],
-            'password'              => ['required', 'confirmed', Password::min(8)],
+            'password'              => ['required', 'confirmed', 'string', 'min:8'],
             'business_name'         => ['required', 'string', 'max:200']
         ], [
             'name.required' => 'Le nom est obligatoire.',
@@ -273,7 +273,7 @@ class AdminController extends Controller
             'token'         => ['required', 'string'],
             'name'          => ['required', 'string', 'max:100'],
             'phone'         => ['required', 'string', 'max:20'],
-            'password'      => ['required', 'confirmed', Password::min(8)],
+            'password'      => ['required', 'confirmed', 'string', 'min:8'],
             'business_name' => ['required', 'string', 'max:200'],
             'address'       => ['required', 'string', 'max:300'],
             'siret'         => ['required', 'string', 'max:50'],

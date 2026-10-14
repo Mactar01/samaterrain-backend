@@ -24,7 +24,7 @@ class AuthController extends Controller
             'name'                  => ['required', 'string', 'max:100'],
             'email'                 => ['nullable', 'string', 'email', 'max:255', 'unique:users'],
             'phone'                 => ['required', 'string', 'max:20', 'unique:users'],
-            'password'              => ['required', 'confirmed', Password::min(8)],
+            'password'              => ['required', 'confirmed', 'string', 'min:8'],
         ]);
 
         // OTP TEMPORAIREMENT DESACTIVE (commenté)
@@ -195,7 +195,7 @@ class AuthController extends Controller
             'name'                     => ['sometimes', 'string', 'max:100'],
             'phone'                    => ['sometimes', 'nullable', 'string', 'max:20', Rule::unique('users', 'phone')->ignore($user->id)],
             'current_password'         => ['required_with:new_password', 'string'],
-            'new_password'             => ['nullable', 'confirmed', Password::min(8)],
+            'new_password'             => ['nullable', 'confirmed', 'string', 'min:8'],
         ]);
 
         // Vérification mot de passe actuel si changement demandé
