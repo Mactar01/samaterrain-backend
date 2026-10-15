@@ -16,7 +16,7 @@ class WaveService implements PaymentGatewayInterface
         $transactionRef = 'WAVE-' . strtoupper(Str::random(10));
         
         // Simulation d'une URL de paiement retournée par Wave
-        $paymentUrl = env('FRONTEND_URL', 'http://localhost:4200') . '/payment-simulation?ref=' . $transactionRef . '&method=wave&amount=' . $amount;
+        $paymentUrl = config('app.frontend_url') . '/payment-simulation?ref=' . $transactionRef . '&method=wave&amount=' . $amount;
 
         return [
             'success'         => true,

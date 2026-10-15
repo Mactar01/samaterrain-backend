@@ -43,8 +43,8 @@ class PayDunyaService
                 'name' => 'myTerrain',
             ],
             'actions' => [
-                'cancel_url' => env('FRONTEND_URL', 'http://192.168.1.4:8080') . '/payment/cancel',
-                'return_url' => env('FRONTEND_URL', 'http://192.168.1.4:8080') . '/payment/success',
+                'cancel_url' => config('app.frontend_url') . '/payment/cancel',
+                'return_url' => config('app.frontend_url') . '/payment/success',
                 'callback_url' => env('APP_URL', 'http://192.168.1.4:8000') . '/api/v1/payments/webhook'
             ],
             'custom_data' => [

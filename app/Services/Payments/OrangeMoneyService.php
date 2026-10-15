@@ -14,7 +14,7 @@ class OrangeMoneyService implements PaymentGatewayInterface
         
         $transactionRef = 'OM-' . strtoupper(Str::random(10));
         
-        $paymentUrl = env('FRONTEND_URL', 'http://localhost:4200') . '/payment-simulation?ref=' . $transactionRef . '&method=orange_money&amount=' . $amount;
+        $paymentUrl = config('app.frontend_url') . '/payment-simulation?ref=' . $transactionRef . '&method=orange_money&amount=' . $amount;
 
         return [
             'success'         => true,

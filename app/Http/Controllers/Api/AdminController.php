@@ -220,7 +220,7 @@ class AdminController extends Controller
             'expires_at'      => now()->addDays(7),
         ]);
 
-        $frontendUrl = env('FRONTEND_URL', 'http://localhost:4200');
+        $frontendUrl = config('app.frontend_url');
         $inviteLink  = $frontendUrl . '/register-owner?token=' . $token;
 
         try {

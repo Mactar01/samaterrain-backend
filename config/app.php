@@ -56,6 +56,19 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Frontend URL (lien principal)
+    |--------------------------------------------------------------------------
+    |
+    | FRONTEND_URL peut contenir plusieurs origines séparées par des virgules
+    | (utilisé par config/cors.php). Pour construire un lien (invitation,
+    | retour de paiement...) on prend uniquement la première.
+    |
+    */
+
+    'frontend_url' => rtrim(trim(explode(',', (string) env('FRONTEND_URL', 'http://localhost:4200'))[0]), '/'),
+
+    /*
+    |--------------------------------------------------------------------------
     | Application Timezone
     |--------------------------------------------------------------------------
     |
