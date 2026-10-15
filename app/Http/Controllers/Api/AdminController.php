@@ -322,7 +322,7 @@ class AdminController extends Controller
             'password'      => ['required', 'confirmed', 'string', 'min:8'],
             'business_name' => ['required', 'string', 'max:200'],
             'address'       => ['required', 'string', 'max:300'],
-            'siret'         => ['required', 'string', 'max:50'],
+            'siret'         => ['nullable', 'string', 'max:50'],
         ]);
 
         $invitation = OwnerInvitation::where('token', $data['token'])->first();
@@ -355,7 +355,7 @@ class AdminController extends Controller
             'user_id'       => $user->id,
             'business_name' => $data['business_name'],
             'address'       => $data['address'],
-            'siret'         => $data['siret'],
+            'siret'         => $data['siret'] ?? null,
             'is_verified'   => true,
         ]);
 
