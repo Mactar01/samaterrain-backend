@@ -242,40 +242,44 @@ class AdminController extends Controller
     }
 
     /**
-     * Inviter un loueur par email — POST admin/owners/invite
+     * Inviter un loueur par email ou lien direct — POST admin/owners/invite
      */
     public function inviteOwner(Request $request): JsonResponse
     {
         $data = $request->validate([
-            'email'         => ['required', 'email', 'unique:users,email'],
-            'business_name' => ['required', 'string', 'max:200'],
+            'email'         => ['nullable', 'email', 'unique:users,email'],
+            'business_name' => ['nullable', 'string', 'max:200'],
         ]);
 
         $token = Str::random(64);
 
         $invitation = OwnerInvitation::create([
-            'email'           => $data['email'],
-            'business_name'   => $data['business_name'],
+            'email'           => !empty($data['email']) ? strtolower(trim($data['email'])) : null,
+            'business_name'   => !empty($data['business_name']) ? trim($data['business_name']) : null,
             'invited_by_name' => $request->user()->name,
             'token'           => $token,
             'expires_at'      => now()->addDays(7),
         ]);
 
-        $frontendUrl = config('app.frontend_url');
-        $inviteLink  = $frontendUrl . '/register-owner?token=' . $token;
+        $rawFrontend = config('app.frontend_url', env('FRONTEND_URL', 'http://localhost:4200'));
+        $frontendUrl = trim(explode(',', $rawFrontend)[0]);
+        $inviteLink  = rtrim($frontendUrl, '/') . '/register-owner?token=' . $token;
 
-        try {
-            Mail::to($data['email'])->send(new \App\Mail\OwnerInvitationMail($invitation, $inviteLink));
-        } catch (\Exception $e) {
-            // L'envoi d'email est optionnel — on continue même en cas d'échec
+        if (!empty($data['email'])) {
+            try {
+                Mail::to($data['email'])->send(new \App\Mail\OwnerInvitationMail($invitation, $inviteLink));
+            } catch (\Exception $e) {
+                // L'envoi d'email est optionnel — on continue même en cas d'échec
+            }
         }
 
+        $businessInfo = !empty($data['business_name']) ? ' pour "' . $data['business_name'] . '"' : '';
         $whatsappLink = 'https://wa.me/?text=' . urlencode(
-            'Bonjour, vous êtes invité à rejoindre myTerrain ! Cliquez sur ce lien pour créer votre compte loueur : ' . $inviteLink
+            'Bonjour, vous êtes invité à rejoindre myTerrain' . $businessInfo . ' ! Cliquez sur ce lien pour créer votre compte loueur : ' . $inviteLink
         );
 
         return response()->json([
-            'message'       => 'Invitation envoyée avec succès.',
+            'message'       => 'Lien d\'invitation généré avec succès.',
             'invite_link'   => $inviteLink,
             'whatsapp_link' => $whatsappLink,
             'expires_at'    => $invitation->expires_at,
@@ -312,6 +316,7 @@ class AdminController extends Controller
     {
         $data = $request->validate([
             'token'         => ['required', 'string'],
+            'email'         => ['required', 'email', 'max:255', 'unique:users,email'],
             'name'          => ['required', 'string', 'max:100'],
             'phone'         => ['required', 'string', 'max:20'],
             'password'      => ['required', 'confirmed', 'string', 'min:8'],
@@ -328,7 +333,9 @@ class AdminController extends Controller
             ], 404);
         }
 
-        if (User::where('email', $invitation->email)->exists()) {
+        $chosenEmail = strtolower(trim($data['email']));
+
+        if (User::where('email', $chosenEmail)->exists()) {
             return response()->json([
                 'message' => 'Un compte existe déjà avec cette adresse email.',
             ], 422);
@@ -336,7 +343,7 @@ class AdminController extends Controller
 
         $user = User::create([
             'name'                 => $data['name'],
-            'email'                => $invitation->email,
+            'email'                => $chosenEmail,
             'phone'                => $data['phone'],
             'password'             => Hash::make($data['password']),
             'role'                 => 'owner',
@@ -352,6 +359,7 @@ class AdminController extends Controller
             'is_verified'   => true,
         ]);
 
+        $invitation->email = $chosenEmail;
         $invitation->used_at = now();
         $invitation->save();
 
