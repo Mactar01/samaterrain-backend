@@ -8,6 +8,7 @@ use App\Models\Owner;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\Rules\Password;
 use Illuminate\Validation\ValidationException;
@@ -78,12 +79,11 @@ class AuthController extends Controller
             ]);
         }
 
-        // OTP TEMPORAIREMENT DESACTIVE
-        // if (! $user->is_active) {
-        //     throw ValidationException::withMessages([
-        //         $loginField => ['Votre compte n\'est pas encore activé. Veuillez vérifier votre numéro avec le code OTP.'],
-        //     ]);
-        // }
+        if (! $user->is_active) {
+            throw ValidationException::withMessages([
+                'email' => ['Votre compte a été bloqué ou désactivé par l\'administrateur. Veuillez contacter le support.'],
+            ]);
+        }
 
         $token = $user->createToken('auth_token')->plainTextToken;
 
@@ -194,6 +194,8 @@ class AuthController extends Controller
         $data = $request->validate([
             'name'                     => ['sometimes', 'string', 'max:100'],
             'phone'                    => ['sometimes', 'nullable', 'string', 'max:20', Rule::unique('users', 'phone')->ignore($user->id)],
+            'avatar'                   => ['sometimes', 'nullable', 'string'],
+            'avatar_file'              => ['sometimes', 'nullable', 'image', 'max:5120'],
             'current_password'         => ['required_with:new_password', 'string'],
             'new_password'             => ['nullable', 'confirmed', 'string', 'min:8'],
         ]);
@@ -206,10 +208,33 @@ class AuthController extends Controller
                 ]);
             }
             $user->password = Hash::make($data['new_password']);
+            $user->must_change_password = false;
         }
 
         if (isset($data['name']))  $user->name  = $data['name'];
         if (array_key_exists('phone', $data)) $user->phone = $data['phone'];
+
+        if ($request->hasFile('avatar_file')) {
+            $path = $request->file('avatar_file')->store('avatars', 'public');
+            $user->avatar = url(Storage::url($path));
+        } elseif (array_key_exists('avatar', $data)) {
+            $rawAvatar = $data['avatar'];
+            if ($rawAvatar && str_starts_with($rawAvatar, 'data:image')) {
+                @list($type, $imgData) = explode(';', $rawAvatar);
+                @list(, $imgData) = explode(',', $imgData);
+                if ($imgData) {
+                    $decoded = base64_decode($imgData);
+                    $ext = 'jpg';
+                    if (str_contains($type, 'png')) $ext = 'png';
+                    elseif (str_contains($type, 'webp')) $ext = 'webp';
+                    $filename = 'avatars/avatar_' . $user->id . '_' . time() . '.' . $ext;
+                    Storage::disk('public')->put($filename, $decoded);
+                    $user->avatar = url(Storage::url($filename));
+                }
+            } else {
+                $user->avatar = $rawAvatar;
+            }
+        }
 
         $user->save();
 
@@ -224,15 +249,29 @@ class AuthController extends Controller
     // ─────────────────────────────────────────────────────────────────
     private function userResource(User $user): array
     {
+        $avatar = $user->avatar;
+        if ($avatar) {
+            if (str_contains($avatar, 'trycloudflare.com')) {
+                $avatar = preg_replace('#^https?://[^/]+#', config('app.url'), $avatar);
+            } elseif (str_starts_with($avatar, '/storage')) {
+                $avatar = rtrim(config('app.url'), '/') . $avatar;
+            } elseif (str_starts_with($avatar, 'storage/')) {
+                $avatar = rtrim(config('app.url'), '/') . '/' . $avatar;
+            } elseif (!str_starts_with($avatar, 'http') && !str_starts_with($avatar, 'data:')) {
+                $avatar = rtrim(config('app.url'), '/') . '/storage/' . ltrim($avatar, '/');
+            }
+        }
+
         $data = [
-            'id'         => $user->id,
-            'name'       => $user->name,
-            'email'      => $user->email,
-            'phone'      => $user->phone,
-            'role'       => $user->role,
-            'avatar'     => $user->avatar,
-            'is_active'  => $user->is_active,
-            'created_at' => $user->created_at,
+            'id'                   => $user->id,
+            'name'                 => $user->name,
+            'email'                => $user->email,
+            'phone'                => $user->phone,
+            'role'                 => $user->role,
+            'avatar'               => $avatar,
+            'is_active'            => $user->is_active,
+            'must_change_password' => (bool) $user->must_change_password,
+            'created_at'           => $user->created_at,
         ];
 
         if ($user->isOwner() && $user->relationLoaded('owner') && $user->owner) {
@@ -256,5 +295,16 @@ class AuthController extends Controller
         ]);
 
         return response()->json(['message' => 'FCM Token mis à jour avec succès.']);
+    }
+
+    public function getAdminContact(): JsonResponse
+    {
+        $admin = User::where('role', 'admin')->first();
+
+        return response()->json([
+            'name'  => $admin ? $admin->name : 'Super Administrateur myTerrain',
+            'email' => $admin && $admin->email ? $admin->email : 'admin@myterrain.sn',
+            'phone' => $admin && $admin->phone ? $admin->phone : '+221770000000',
+        ]);
     }
 }

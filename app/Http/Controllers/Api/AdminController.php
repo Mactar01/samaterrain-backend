@@ -48,37 +48,73 @@ class AdminController extends Controller
             'name'                  => ['required', 'string', 'max:100'],
             'email'                 => ['required', 'email', 'max:150', 'unique:users'],
             'phone'                 => ['nullable', 'string', 'max:20'],
-            'password'              => ['required', 'confirmed', 'string', 'min:8'],
-            'business_name'         => ['required', 'string', 'max:200']
+            'password'              => ['required', 'string', 'min:8'],
+            'business_name'         => ['required', 'string', 'max:200'],
+            'send_email'            => ['nullable', 'boolean'],
         ], [
             'name.required' => 'Le nom est obligatoire.',
             'email.required' => 'L\'adresse email est obligatoire.',
             'email.email' => 'L\'adresse email doit être valide.',
             'email.unique' => 'Cette adresse email est déjà utilisée.',
-            'password.required' => 'Le mot de passe est obligatoire.',
-            'password.confirmed' => 'Les mots de passe ne correspondent pas.',
+            'password.required' => 'Le mot de passe temporaire est obligatoire.',
             'password.min' => 'Le mot de passe doit contenir au moins 8 caractères.',
             'business_name.required' => 'Le nom du complexe est obligatoire.'
         ]);
 
         $user = User::create([
-            'name'      => $data['name'],
-            'email'     => $data['email'],
-            'phone'     => $data['phone'] ?? null,
-            'password'  => Hash::make($data['password']),
-            'role'      => 'owner',
-            'is_active' => true,
+            'name'                  => $data['name'],
+            'email'                 => $data['email'],
+            'phone'                 => $data['phone'] ?? null,
+            'password'              => Hash::make($data['password']),
+            'role'                  => 'owner',
+            'is_active'             => true,
+            'must_change_password'  => true,
         ]);
 
         $owner = Owner::create([
-            'user_id' => $user->id,
+            'user_id'       => $user->id,
             'business_name' => $data['business_name'],
-            'is_verified' => true
+            'is_verified'   => true
         ]);
 
+        $frontendUrl = config('app.frontend_url', env('FRONTEND_URL', 'http://localhost:4200'));
+        $loginLink   = rtrim($frontendUrl, '/') . '/login';
+
+        // Normalisation numéro WhatsApp (support indicatif 221 Sénégal)
+        $rawPhone   = $data['phone'] ?? '';
+        $cleanPhone = preg_replace('/[^0-9]/', '', $rawPhone);
+        if (strlen($cleanPhone) === 9 && in_array(substr($cleanPhone, 0, 2), ['70', '75', '76', '77', '78', '33'])) {
+            $cleanPhone = '221' . $cleanPhone;
+        }
+
+        $waMessage  = "Bonjour {$data['name']},\n\nVotre compte Loueur Partenaire sur myTerrain a bien été créé pour votre complexe *{$data['business_name']}* !\n\nVoici vos identifiants pour vous connecter :\n📧 Email : {$user->email}\n🔑 Mot de passe temporaire : {$data['password']}\n🌐 Connexion : {$loginLink}\n\n⚠️ Important : Ce mot de passe est strictement temporaire. Vous serez invité à définir votre propre mot de passe personnel dès votre première connexion.";
+        $whatsappLink = $cleanPhone 
+            ? "https://wa.me/{$cleanPhone}?text=" . rawurlencode($waMessage) 
+            : "https://api.whatsapp.com/send?text=" . rawurlencode($waMessage);
+
+        $emailSent = false;
+        if (!isset($data['send_email']) || $data['send_email']) {
+            try {
+                Mail::to($user->email)->send(new \App\Mail\OwnerTemporaryCredentialsMail($user, $data['password'], $data['business_name'], $loginLink));
+                $emailSent = true;
+            } catch (\Exception $e) {
+                \Log::warning("Impossible d'envoyer l'email des identifiants temporaires : " . $e->getMessage());
+            }
+        }
+
         return response()->json([
-            'message' => 'Compte loueur créé avec succès.',
-            'user'    => $user->load('owner'),
+            'message'     => 'Compte loueur créé avec succès.',
+            'user'        => $user->load('owner'),
+            'credentials' => [
+                'email'              => $user->email,
+                'temporary_password' => $data['password'],
+                'phone'              => $user->phone,
+                'business_name'      => $data['business_name'],
+                'whatsapp_link'      => $whatsappLink,
+                'whatsapp_message'   => $waMessage,
+                'login_link'         => $loginLink,
+                'email_sent'         => $emailSent
+            ]
         ], 201);
     }
 
@@ -124,7 +160,12 @@ class AdminController extends Controller
         $user->is_active = !$user->is_active;
         $user->save();
 
-        $status = $user->is_active ? 'activé' : 'désactivé';
+        if (!$user->is_active) {
+            // Révoquer immédiatement tous les jetons d'accès pour déconnecter l'utilisateur
+            $user->tokens()->delete();
+        }
+
+        $status = $user->is_active ? 'activé' : 'bloqué';
 
         return response()->json([
             'message' => "Le compte partenaire a été $status."
@@ -294,12 +335,13 @@ class AdminController extends Controller
         }
 
         $user = User::create([
-            'name'      => $data['name'],
-            'email'     => $invitation->email,
-            'phone'     => $data['phone'],
-            'password'  => Hash::make($data['password']),
-            'role'      => 'owner',
-            'is_active' => true,
+            'name'                 => $data['name'],
+            'email'                => $invitation->email,
+            'phone'                => $data['phone'],
+            'password'             => Hash::make($data['password']),
+            'role'                 => 'owner',
+            'is_active'            => true,
+            'must_change_password' => false,
         ]);
 
         Owner::create([
