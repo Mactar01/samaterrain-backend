@@ -35,6 +35,7 @@ jobs:
             git reset --hard origin/preprod
             cd /var/www/myterrain
             docker-compose up -d --build backend
+            sleep 5
             docker-compose exec -T backend php artisan migrate --force
             docker-compose exec -T backend php artisan optimize:clear
             echo "🧹 Nettoyage des images temporaires post-build..."

@@ -9,9 +9,13 @@ return new class extends Migration
     public function up(): void
     {
         if (Schema::hasTable('owners') && !Schema::hasColumn('owners', 'settings')) {
-            Schema::table('owners', function (Blueprint $table) {
-                $table->json('settings')->nullable();
-            });
+            try {
+                Schema::table('owners', function (Blueprint $table) {
+                    $table->json('settings')->nullable();
+                });
+            } catch (\Throwable $e) {
+                // Ignore duplicate column error if concurrent migration already added it
+            }
         }
     }
 
