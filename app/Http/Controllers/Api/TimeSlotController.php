@@ -121,7 +121,23 @@ class TimeSlotController extends Controller
             'start_date' => 'required|date|after_or_equal:today',
             'end_date' => 'required|date|after_or_equal:start_date',
             'start_time' => 'required|date_format:H:i',
-            'end_time' => 'required|date_format:H:i|after:start_time',
+            'end_time' => [
+                'required',
+                'date_format:H:i',
+                function ($attribute, $value, $fail) use ($request) {
+                    $startTime = $request->input('start_time');
+                    if (!$startTime) return;
+                    if ($value === '00:00') {
+                        if ($startTime === '00:00') {
+                            $fail("L'heure de fin ne peut pas être identique à l'heure de début.");
+                        }
+                        return;
+                    }
+                    if ($value <= $startTime) {
+                        $fail("L'heure de fin doit être postérieure à l'heure de début.");
+                    }
+                }
+            ],
             'duration_minutes' => 'required|integer|min:30|max:240',
             'price' => 'nullable|numeric|min:0'
         ]);
@@ -140,6 +156,11 @@ class TimeSlotController extends Controller
         for ($date = clone $startDate; $date->lte($endDate); $date->addDay()) {
             $startTime = \Carbon\Carbon::parse($date->format('Y-m-d') . ' ' . $request->start_time);
             $endTime = \Carbon\Carbon::parse($date->format('Y-m-d') . ' ' . $request->end_time);
+
+            // Si l'heure de fin est minuit (00:00) ou antérieure à l'heure de début, elle appartient au jour suivant
+            if ($request->end_time === '00:00' || $endTime->lte($startTime)) {
+                $endTime->addDay();
+            }
 
             while ($startTime->copy()->addMinutes($duration)->lte($endTime)) {
                 $slotEnd = $startTime->copy()->addMinutes($duration);
