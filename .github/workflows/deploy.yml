@@ -20,9 +20,12 @@ jobs:
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           port: ${{ secrets.SSH_PORT || 22 }}
           script: |
-            echo "🚀 [GitHub Actions] Début du déploiement..."
+            set -e
+            echo "🚀 [GitHub Actions] Début du déploiement Backend..."
             cd /var/www/myterrain/backend
+            git checkout preprod
             git pull origin preprod
             cd /var/www/myterrain
-            docker-compose up -d --build myterrain_backend
+            docker-compose up -d --build backend
+            docker-compose exec -T backend php artisan optimize:clear
             echo "✅ [GitHub Actions] Backend déployé avec succès !"
