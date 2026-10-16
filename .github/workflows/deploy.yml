@@ -22,6 +22,13 @@ jobs:
           script: |
             set -e
             echo "🚀 [GitHub Actions] Début du déploiement Backend..."
+            echo "📊 [Espace Disque] État avant nettoyage :"
+            df -h
+            echo "🧹 Nettoyage des images Docker inutilisées et du cache de build..."
+            docker builder prune -af || true
+            docker image prune -af || true
+            echo "📊 [Espace Disque] État après nettoyage :"
+            df -h
             cd /var/www/myterrain/backend
             git checkout -f preprod
             git fetch origin preprod
@@ -30,4 +37,8 @@ jobs:
             docker-compose up -d --build backend
             docker-compose exec -T backend php artisan migrate --force
             docker-compose exec -T backend php artisan optimize:clear
+            echo "🧹 Nettoyage des images temporaires post-build..."
+            docker image prune -f || true
+            echo "📊 [Espace Disque] État final :"
+            df -h
             echo "✅ [GitHub Actions] Backend déployé avec succès !"

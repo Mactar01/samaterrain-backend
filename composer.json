@@ -56,6 +56,7 @@
             "@php artisan test"
         ],
         "post-autoload-dump": [
+            "Google\\Task\\Composer::cleanup",
             "Illuminate\\Foundation\\ComposerScripts::postAutoloadDump",
             "@php artisan package:discover --ansi"
         ],
@@ -77,7 +78,10 @@
     "extra": {
         "laravel": {
             "dont-discover": []
-        }
+        },
+        "google/apiclient-services": [
+            "FirebaseCloudMessaging"
+        ]
     },
     "config": {
         "optimize-autoloader": true,
