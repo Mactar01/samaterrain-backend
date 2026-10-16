@@ -14,6 +14,7 @@ class OwnerCollaborator extends Model
         'user_id',
         'role',
         'permissions',
+        'additional_info',
         'is_active',
         'invited_by',
     ];
@@ -21,8 +22,9 @@ class OwnerCollaborator extends Model
     protected function casts(): array
     {
         return [
-            'permissions' => 'array',
-            'is_active'   => 'boolean',
+            'permissions'     => 'array',
+            'additional_info' => 'array',
+            'is_active'       => 'boolean',
         ];
     }
 

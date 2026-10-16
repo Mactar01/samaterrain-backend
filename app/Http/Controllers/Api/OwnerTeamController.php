@@ -59,12 +59,13 @@ class OwnerTeamController extends Controller
                     'phone'        => $collab->user?->phone ?? '-',
                     'role'         => $collab->role,
                     'role_label'   => $this->getRoleLabel($collab->role, $owner),
-                    'permissions'  => $collab->role === 'custom' && is_array($collab->permissions)
+                    'permissions'     => $collab->role === 'custom' && is_array($collab->permissions)
                         ? $collab->permissions
                         : $owner->getRolePermissions($collab->role),
-                    'is_active'    => $collab->is_active,
-                    'is_primary'   => false,
-                    'created_at'   => $collab->created_at->format('d/m/Y'),
+                    'additional_info' => $collab->additional_info,
+                    'is_active'       => $collab->is_active,
+                    'is_primary'      => false,
+                    'created_at'      => $collab->created_at->format('d/m/Y'),
                 ];
             });
 
@@ -391,12 +392,13 @@ class OwnerTeamController extends Controller
         }
 
         $validated = $request->validate([
-            'name'        => 'required|string|max:100',
-            'email'       => 'required|email|max:150',
-            'phone'       => 'nullable|string|max:25',
-            'role'        => 'required|string|max:100',
-            'permissions' => 'nullable|array',
-            'password'    => 'nullable|string|min:6',
+            'name'            => 'required|string|max:100',
+            'email'           => 'required|email|max:150',
+            'phone'           => 'nullable|string|max:25',
+            'role'            => 'required|string|max:100',
+            'permissions'     => 'nullable|array',
+            'password'        => 'nullable|string|min:6',
+            'additional_info' => 'nullable|array',
         ]);
 
         // Vérifier si le compte utilisateur existe déjà
@@ -428,36 +430,38 @@ class OwnerTeamController extends Controller
 
         // Créer l'association collaborateur
         $collab = OwnerCollaborator::create([
-            'owner_id'    => $owner->id,
-            'user_id'     => $targetUser->id,
-            'role'        => $validated['role'],
-            'permissions' => $validated['role'] === 'custom' ? ($validated['permissions'] ?? []) : null,
-            'is_active'   => true,
-            'invited_by'  => $user->id,
+            'owner_id'        => $owner->id,
+            'user_id'         => $targetUser->id,
+            'role'            => $validated['role'],
+            'permissions'     => $validated['role'] === 'custom' ? ($validated['permissions'] ?? []) : null,
+            'additional_info' => $validated['additional_info'] ?? null,
+            'is_active'       => true,
+            'invited_by'      => $user->id,
         ]);
 
         return response()->json([
             'message'      => 'Collaborateur ajouté avec succès à votre équipe.',
             'collaborator' => [
-                'id'           => $collab->id,
-                'user_id'      => $targetUser->id,
-                'name'         => $targetUser->name,
-                'email'        => $targetUser->email,
-                'phone'        => $targetUser->phone,
-                'role'         => $collab->role,
-                'role_label'   => $this->getRoleLabel($collab->role, $owner),
-                'permissions'  => $collab->role === 'custom' && is_array($collab->permissions)
+                'id'              => $collab->id,
+                'user_id'         => $targetUser->id,
+                'name'            => $targetUser->name,
+                'email'           => $targetUser->email,
+                'phone'           => $targetUser->phone,
+                'role'            => $collab->role,
+                'role_label'      => $this->getRoleLabel($collab->role, $owner),
+                'permissions'     => $collab->role === 'custom' && is_array($collab->permissions)
                     ? $collab->permissions
                     : $owner->getRolePermissions($collab->role),
-                'is_active'    => $collab->is_active,
-                'is_primary'   => false,
-                'created_at'   => $collab->created_at->format('d/m/Y'),
+                'additional_info' => $collab->additional_info,
+                'is_active'       => $collab->is_active,
+                'is_primary'      => false,
+                'created_at'      => $collab->created_at->format('d/m/Y'),
             ]
         ], 201);
     }
 
     /**
-     * Modifier le rôle ou les droits d'un collaborateur
+     * Modifier le rôle, droits et informations d'un collaborateur
      */
     public function update(Request $request, $id)
     {
@@ -478,10 +482,23 @@ class OwnerTeamController extends Controller
             ->firstOrFail();
 
         $validated = $request->validate([
-            'role'        => 'sometimes|string|max:100',
-            'permissions' => 'nullable|array',
-            'is_active'   => 'sometimes|boolean',
+            'name'            => 'sometimes|string|max:100',
+            'phone'           => 'nullable|string|max:25',
+            'role'            => 'sometimes|string|max:100',
+            'permissions'     => 'nullable|array',
+            'is_active'       => 'sometimes|boolean',
+            'additional_info' => 'nullable|array',
         ]);
+
+        if (isset($validated['name']) && $collab->user) {
+            $collab->user->name = $validated['name'];
+        }
+        if (isset($validated['phone']) && $collab->user) {
+            $collab->user->phone = $validated['phone'];
+        }
+        if ($collab->user && $collab->user->isDirty()) {
+            $collab->user->save();
+        }
 
         if (isset($validated['role'])) {
             $collab->role = $validated['role'];
@@ -492,25 +509,114 @@ class OwnerTeamController extends Controller
             $collab->is_active = $validated['is_active'];
         }
 
+        if (isset($validated['additional_info'])) {
+            $currentInfo = is_array($collab->additional_info) ? $collab->additional_info : [];
+            $collab->additional_info = array_merge($currentInfo, $validated['additional_info']);
+        }
+
         $collab->save();
 
         return response()->json([
-            'message'      => 'Droits et rôle du collaborateur mis à jour.',
+            'message'      => 'Collaborateur mis à jour avec succès.',
             'collaborator' => [
-                'id'           => $collab->id,
-                'user_id'      => $collab->user_id,
-                'name'         => $collab->user?->name,
-                'email'        => $collab->user?->email,
-                'phone'        => $collab->user?->phone,
-                'role'         => $collab->role,
-                'role_label'   => $this->getRoleLabel($collab->role, $owner),
-                'permissions'  => $collab->role === 'custom' && is_array($collab->permissions)
+                'id'              => $collab->id,
+                'user_id'         => $collab->user_id,
+                'name'            => $collab->user?->name,
+                'email'           => $collab->user?->email,
+                'phone'           => $collab->user?->phone,
+                'role'            => $collab->role,
+                'role_label'      => $this->getRoleLabel($collab->role, $owner),
+                'permissions'     => $collab->role === 'custom' && is_array($collab->permissions)
                     ? $collab->permissions
                     : $owner->getRolePermissions($collab->role),
-                'is_active'    => $collab->is_active,
-                'is_primary'   => false,
-                'created_at'   => $collab->created_at->format('d/m/Y'),
+                'additional_info' => $collab->additional_info,
+                'is_active'       => $collab->is_active,
+                'is_primary'      => false,
+                'created_at'      => $collab->created_at->format('d/m/Y'),
             ]
+        ]);
+    }
+
+    /**
+     * Mettre à jour les informations complémentaires d'un collaborateur par le gérant
+     */
+    public function updateAdditionalInfo(Request $request, $id)
+    {
+        $user = $request->user();
+        $owner = $user->getOwner();
+
+        if (!$owner) {
+            return response()->json(['message' => 'Complexe partenaire introuvable.'], 404);
+        }
+
+        if (!$user->hasOwnerPermission('team:manage')) {
+            return response()->json(['message' => 'Droits insuffisants pour modifier ce collaborateur.'], 403);
+        }
+
+        $collab = OwnerCollaborator::with('user')
+            ->where('id', $id)
+            ->where('owner_id', $owner->id)
+            ->firstOrFail();
+
+        $validated = $request->validate([
+            'additional_info' => 'required|array',
+        ]);
+
+        $current = is_array($collab->additional_info) ? $collab->additional_info : [];
+        $collab->additional_info = array_merge($current, $validated['additional_info']);
+        $collab->save();
+
+        return response()->json([
+            'message'         => 'Informations complémentaires enregistrées avec succès.',
+            'additional_info' => $collab->additional_info,
+        ]);
+    }
+
+    /**
+     * Pour le collaborateur connecté : consulter ou compléter ses informations supplémentaires
+     */
+    public function getMyCollaboratorProfile(Request $request)
+    {
+        $user = $request->user();
+        $collab = OwnerCollaborator::where('user_id', $user->id)->first();
+
+        return response()->json([
+            'user'            => [
+                'id'    => $user->id,
+                'name'  => $user->name,
+                'email' => $user->email,
+                'phone' => $user->phone,
+            ],
+            'additional_info' => $collab?->additional_info ?? null,
+            'role'            => $collab?->role ?? ($user->owner ? 'owner_master' : 'user'),
+            'role_label'      => $collab ? $this->getRoleLabel($collab->role, $collab->owner) : 'Gérant',
+        ]);
+    }
+
+    public function updateMyCollaboratorProfile(Request $request)
+    {
+        $user = $request->user();
+        $collab = OwnerCollaborator::where('user_id', $user->id)->first();
+
+        if (!$collab) {
+            return response()->json(['message' => 'Profil collaborateur introuvable.'], 404);
+        }
+
+        $validated = $request->validate([
+            'additional_info' => 'required|array',
+        ]);
+
+        $current = is_array($collab->additional_info) ? $collab->additional_info : [];
+        $merged = array_merge($current, $validated['additional_info']);
+        $merged['profile_completed'] = true;
+        $merged['completed_at'] = now()->format('d/m/Y H:i');
+
+        $collab->additional_info = $merged;
+        $collab->save();
+
+        return response()->json([
+            'message'         => 'Vos informations complémentaires ont été enregistrées avec succès.',
+            'additional_info' => $collab->additional_info,
         ]);
     }
 

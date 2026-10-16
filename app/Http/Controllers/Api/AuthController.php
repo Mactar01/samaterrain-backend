@@ -285,12 +285,35 @@ class AuthController extends Controller
                     ? $collab->permissions 
                     : $owner->getRolePermissions($collab->role)) : []);
 
+            $roleKey = $isPrimary ? 'owner_master' : ($collab?->role ?? 'collaborator');
+            $roleLabels = [
+                'owner_master' => 'Gérant Propriétaire (Principal)',
+                'manager'      => 'Administrateur Complexe',
+                'receptionist' => 'Accueil / Réceptionniste',
+                'field_staff'  => 'Responsable Terrain',
+                'accountant'   => 'Comptable / Gestionnaire',
+                'custom'       => 'Rôle Sur-Mesure',
+            ];
+            $roleLabel = $roleLabels[$roleKey] ?? null;
+            if (!$roleLabel && $owner) {
+                foreach ($owner->getCustomRoles() as $cr) {
+                    if (($cr['id'] ?? '') === $roleKey) {
+                        $roleLabel = $cr['name'];
+                        break;
+                    }
+                }
+            }
+            if (!$roleLabel) {
+                $roleLabel = ucfirst(str_replace('_', ' ', $roleKey));
+            }
+
             $data['owner'] = [
                 'id'            => $owner->id,
                 'business_name' => $owner->business_name,
                 'is_verified'   => $owner->isVerified(),
                 'is_primary'    => $isPrimary,
-                'role'          => $isPrimary ? 'owner_master' : ($collab?->role ?? 'collaborator'),
+                'role'          => $roleKey,
+                'role_label'    => $roleLabel,
                 'permissions'   => $perms,
             ];
         }
