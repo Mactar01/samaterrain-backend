@@ -72,6 +72,43 @@ class User extends Authenticatable
         return $this->hasOne(Owner::class);
     }
 
+    public function collaboration()
+    {
+        return $this->hasOne(OwnerCollaborator::class);
+    }
+
+    /**
+     * Récupère le complexe (Owner) auquel cet utilisateur est rattaché
+     * Soit en tant que Gérant principal, soit en tant que Collaborateur
+     */
+    public function getOwner(): ?Owner
+    {
+        if ($this->owner) {
+            return $this->owner;
+        }
+
+        $collab = OwnerCollaborator::where('user_id', $this->id)->where('is_active', true)->first();
+        return $collab?->owner;
+    }
+
+    /**
+     * Vérifie si l'utilisateur possède une permission spécifique sur le complexe
+     * Le Super Admin (admin plateforme) possède TOUTES les permissions sans restriction.
+     */
+    public function hasOwnerPermission(string $permission): bool
+    {
+        if ($this->isAdmin()) {
+            return true;
+        }
+
+        if ($this->owner) {
+            return true;
+        }
+
+        $collab = OwnerCollaborator::where('user_id', $this->id)->where('is_active', true)->first();
+        return $collab ? $collab->hasPermission($permission) : false;
+    }
+
     public function reservations()
     {
         return $this->hasMany(Reservation::class);

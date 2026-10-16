@@ -27,5 +27,6 @@ jobs:
             git pull origin preprod
             cd /var/www/myterrain
             docker-compose up -d --build backend
+            docker-compose exec -T backend php artisan migrate --force
             docker-compose exec -T backend php artisan optimize:clear
             echo "✅ [GitHub Actions] Backend déployé avec succès !"
