@@ -1,0 +1,28 @@
+name: Déploiement Préproduction
+
+on:
+  push:
+    branches:
+      - preprod
+  workflow_dispatch: # Permet de déclencher manuellement via le bouton "Run workflow" sur GitHub
+
+jobs:
+  deploy:
+    name: Déploiement sur le serveur DigitalOcean
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Connexion SSH et mise à jour des conteneurs
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          port: ${{ secrets.SSH_PORT || 22 }}
+          script: |
+            echo "🚀 [GitHub Actions] Début du déploiement..."
+            cd /var/www/myterrain/backend
+            git pull origin preprod
+            cd /var/www/myterrain
+            docker-compose up -d --build myterrain_backend
+            echo "✅ [GitHub Actions] Backend déployé avec succès !"
