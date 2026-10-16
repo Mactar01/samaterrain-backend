@@ -274,11 +274,24 @@ class AuthController extends Controller
             'created_at'           => $user->created_at,
         ];
 
-        if ($user->isOwner() && $user->relationLoaded('owner') && $user->owner) {
+        $owner = $user->getOwner();
+        if ($owner) {
+            $collab = \App\Models\OwnerCollaborator::where('user_id', $user->id)->where('is_active', true)->first();
+            $isPrimary = $user->owner !== null;
+
+            $perms = ($user->isAdmin() || $isPrimary)
+                ? array_column(\App\Models\OwnerCollaborator::availablePermissions(), 'key')
+                : ($collab ? ($collab->role === 'custom' && is_array($collab->permissions) 
+                    ? $collab->permissions 
+                    : $owner->getRolePermissions($collab->role)) : []);
+
             $data['owner'] = [
-                'id'            => $user->owner->id,
-                'business_name' => $user->owner->business_name,
-                'is_verified'   => $user->owner->isVerified(),
+                'id'            => $owner->id,
+                'business_name' => $owner->business_name,
+                'is_verified'   => $owner->isVerified(),
+                'is_primary'    => $isPrimary,
+                'role'          => $isPrimary ? 'owner_master' : ($collab?->role ?? 'collaborator'),
+                'permissions'   => $perms,
             ];
         }
 

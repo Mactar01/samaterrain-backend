@@ -77,7 +77,42 @@ class Owner extends Model
                 'include_customer_phone'  => true,
                 'fiscal_year_start_month' => 1,
             ],
+            'custom_roles'     => [],
+            'role_permissions' => [],
         ];
+    }
+
+    /**
+     * Obtenir les rôles personnalisés définis par le gérant
+     */
+    public function getCustomRoles(): array
+    {
+        $settings = $this->settings;
+        return $settings['custom_roles'] ?? [];
+    }
+
+    /**
+     * Obtenir les permissions assignées à un rôle dans ce complexe
+     */
+    public function getRolePermissions(string $role): array
+    {
+        $settings = $this->settings;
+        $rolePermissions = $settings['role_permissions'] ?? [];
+
+        if (isset($rolePermissions[$role]) && is_array($rolePermissions[$role])) {
+            return $rolePermissions[$role];
+        }
+
+        // Si rôle personnalisé
+        if (str_starts_with($role, 'custom_')) {
+            foreach ($this->getCustomRoles() as $cr) {
+                if (($cr['id'] ?? '') === $role) {
+                    return $cr['permissions'] ?? [];
+                }
+            }
+        }
+
+        return \App\Models\OwnerCollaborator::defaultPermissionsForRole($role);
     }
 
     /**

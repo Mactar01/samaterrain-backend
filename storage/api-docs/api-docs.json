@@ -1,0 +1,786 @@
+{
+    "openapi": "3.0.0",
+    "info": {
+        "title": "myTerrain API Documentation",
+        "description": "Documentation interactive des APIs de myTerrain",
+        "contact": {
+            "email": "contact@myterrain.sn"
+        },
+        "version": "1.0.0"
+    },
+    "servers": [
+        {
+            "url": "/",
+            "description": "Serveur API"
+        }
+    ],
+    "paths": {
+        "/api/auth/login": {
+            "post": {
+                "tags": [
+                    "Authentification"
+                ],
+                "summary": "Connexion utilisateur",
+                "operationId": "loginUser",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "email",
+                                    "password"
+                                ],
+                                "properties": {
+                                    "email": {
+                                        "type": "string",
+                                        "format": "email",
+                                        "example": "admin@myterrain.com"
+                                    },
+                                    "password": {
+                                        "type": "string",
+                                        "format": "password",
+                                        "example": "password"
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Connexion réussie"
+                    },
+                    "401": {
+                        "description": "Identifiants invalides"
+                    }
+                }
+            }
+        },
+        "/api/auth/me": {
+            "get": {
+                "tags": [
+                    "Authentification"
+                ],
+                "summary": "Obtenir les informations de l'utilisateur connecté",
+                "operationId": "getMe",
+                "responses": {
+                    "200": {
+                        "description": "Succès"
+                    },
+                    "401": {
+                        "description": "Non autorisé"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/fields": {
+            "get": {
+                "tags": [
+                    "Terrains"
+                ],
+                "summary": "Récupérer la liste des terrains",
+                "description": "Retourne une liste de terrains paginée",
+                "operationId": "getFieldsList",
+                "responses": {
+                    "200": {
+                        "description": "Opération réussie"
+                    }
+                }
+            }
+        },
+        "/api/owner/fields": {
+            "get": {
+                "tags": [
+                    "Terrains Propriétaire"
+                ],
+                "summary": "Récupérer les terrains du propriétaire connecté",
+                "operationId": "getMyFields",
+                "responses": {
+                    "200": {
+                        "description": "Opération réussie"
+                    },
+                    "401": {
+                        "description": "Non autorisé"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/owner/settings": {
+            "get": {
+                "tags": [
+                    "Paramétrage Complexe (Modules Gérant)"
+                ],
+                "summary": "Récupérer la configuration des modules stratégiques du complexe",
+                "description": "Retourne les paramètres WhatsApp/SMS, Abonnements, Matchmaking, Fidélité, Export comptable et Marque blanche",
+                "operationId": "getOwnerSettings",
+                "responses": {
+                    "200": {
+                        "description": "Paramètres récupérés avec succès",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "settings": {
+                                            "type": "object"
+                                        },
+                                        "business_name": {
+                                            "type": "string"
+                                        },
+                                        "commission_rate": {
+                                            "type": "number"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "403": {
+                        "description": "Droits insuffisants (gérant requis)"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            },
+            "put": {
+                "tags": [
+                    "Paramétrage Complexe (Modules Gérant)"
+                ],
+                "summary": "Mettre à jour les paramètres des modules du complexe",
+                "description": "Enregistre les modifications de configuration pour l'un ou plusieurs des 5 modules stratégiques",
+                "operationId": "updateOwnerSettings",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "properties": {
+                                    "whatsapp_sms": {
+                                        "type": "object"
+                                    },
+                                    "subscriptions": {
+                                        "type": "object"
+                                    },
+                                    "matchmaking": {
+                                        "type": "object"
+                                    },
+                                    "loyalty": {
+                                        "type": "object"
+                                    },
+                                    "accounting": {
+                                        "type": "object"
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Paramètres mis à jour avec succès"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/owner/reports/accounting": {
+            "get": {
+                "tags": [
+                    "Paramétrage Complexe (Modules Gérant)"
+                ],
+                "summary": "Générer le rapport et récapitulatif comptable",
+                "description": "Calcule les métriques financières (chiffre d'affaires brut, net, commissions, paiements par mode) sur la période demandée",
+                "operationId": "getAccountingReport",
+                "parameters": [
+                    {
+                        "name": "year",
+                        "in": "query",
+                        "schema": {
+                            "type": "integer"
+                        }
+                    },
+                    {
+                        "name": "month",
+                        "in": "query",
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Rapport comptable généré"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/owner/reports/export-csv": {
+            "get": {
+                "tags": [
+                    "Paramétrage Complexe (Modules Gérant)"
+                ],
+                "summary": "Télécharger l'export financier au format CSV / Excel",
+                "operationId": "exportAccountingCsv",
+                "parameters": [
+                    {
+                        "name": "year",
+                        "in": "query",
+                        "schema": {
+                            "type": "integer"
+                        }
+                    },
+                    {
+                        "name": "month",
+                        "in": "query",
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Fichier CSV téléchargé"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/owner/team": {
+            "get": {
+                "tags": [
+                    "Gestion Utilisateurs - Collaborateurs"
+                ],
+                "summary": "Lister les membres et collaborateurs du complexe",
+                "description": "Retourne la liste complète des membres rattachés au complexe avec leurs rôles et permissions",
+                "operationId": "getOwnerTeamMembers",
+                "responses": {
+                    "200": {
+                        "description": "Liste des collaborateurs récupérée avec succès",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "owner": {
+                                            "type": "object"
+                                        },
+                                        "members": {
+                                            "type": "array",
+                                            "items": {
+                                                "type": "object"
+                                            }
+                                        },
+                                        "total_members": {
+                                            "type": "integer",
+                                            "example": 4
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    },
+                    "401": {
+                        "description": "Non authentifié"
+                    },
+                    "403": {
+                        "description": "Droits insuffisants"
+                    },
+                    "404": {
+                        "description": "Complexe introuvable"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            },
+            "post": {
+                "tags": [
+                    "Gestion Utilisateurs - Collaborateurs"
+                ],
+                "summary": "Créer un nouveau collaborateur pour le complexe",
+                "description": "Crée un compte ou associe un utilisateur existant avec un rôle et des droits spécifiques au complexe",
+                "operationId": "createOwnerCollaborator",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "name",
+                                    "email",
+                                    "role"
+                                ],
+                                "properties": {
+                                    "name": {
+                                        "type": "string",
+                                        "example": "Mamadou Sow"
+                                    },
+                                    "email": {
+                                        "type": "string",
+                                        "format": "email",
+                                        "example": "mamadou@example.com"
+                                    },
+                                    "phone": {
+                                        "type": "string",
+                                        "example": "+221770000000"
+                                    },
+                                    "role": {
+                                        "description": "manager, receptionist, field_staff, accountant, ou ID d'un custom role",
+                                        "type": "string",
+                                        "example": "receptionist"
+                                    },
+                                    "permissions": {
+                                        "type": "array",
+                                        "items": {
+                                            "type": "string"
+                                        },
+                                        "example": [
+                                            "reservations:manage",
+                                            "slots:manage"
+                                        ]
+                                    },
+                                    "password": {
+                                        "type": "string",
+                                        "format": "password",
+                                        "example": "Pass1234!"
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "201": {
+                        "description": "Collaborateur ajouté avec succès"
+                    },
+                    "422": {
+                        "description": "Erreur de validation"
+                    },
+                    "403": {
+                        "description": "Droits insuffisants"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/owner/team/{id}": {
+            "put": {
+                "tags": [
+                    "Gestion Utilisateurs - Collaborateurs"
+                ],
+                "summary": "Mettre à jour un collaborateur (rôle, droits, statut)",
+                "description": "Permet de modifier le rôle attribué, les permissions sur-mesure ou suspendre/activer le compte",
+                "operationId": "updateOwnerCollaborator",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "description": "ID de la liaison collaborateur",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "properties": {
+                                    "role": {
+                                        "type": "string",
+                                        "example": "manager"
+                                    },
+                                    "permissions": {
+                                        "type": "array",
+                                        "items": {
+                                            "type": "string"
+                                        }
+                                    },
+                                    "is_active": {
+                                        "type": "boolean",
+                                        "example": true
+                                    },
+                                    "phone": {
+                                        "type": "string",
+                                        "example": "+221771112233"
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Collaborateur mis à jour avec succès"
+                    },
+                    "404": {
+                        "description": "Collaborateur introuvable"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            },
+            "delete": {
+                "tags": [
+                    "Gestion Utilisateurs - Collaborateurs"
+                ],
+                "summary": "Retirer un collaborateur du complexe",
+                "description": "Supprime l'accès du collaborateur au complexe (le compte maître titulaire ne peut pas être supprimé)",
+                "operationId": "deleteOwnerCollaborator",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "description": "ID de la liaison collaborateur",
+                        "required": true,
+                        "schema": {
+                            "type": "integer"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Collaborateur retiré avec succès"
+                    },
+                    "403": {
+                        "description": "Impossible de supprimer le titulaire"
+                    },
+                    "404": {
+                        "description": "Collaborateur introuvable"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/owner/team/permissions-matrix": {
+            "get": {
+                "tags": [
+                    "Gestion Utilisateurs - Rôles & Droits"
+                ],
+                "summary": "Matrice des droits et rôles du complexe",
+                "description": "Retourne l'ensemble exhaustif des droits système disponibles, des rôles standards et des rôles personnalisés créés",
+                "operationId": "getPermissionsMatrix",
+                "responses": {
+                    "200": {
+                        "description": "Matrice des permissions récupérée",
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "properties": {
+                                        "available_permissions": {
+                                            "type": "array",
+                                            "items": {
+                                                "type": "object"
+                                            }
+                                        },
+                                        "default_roles": {
+                                            "type": "array",
+                                            "items": {
+                                                "type": "object"
+                                            }
+                                        },
+                                        "custom_roles": {
+                                            "type": "array",
+                                            "items": {
+                                                "type": "object"
+                                            }
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/owner/team/assign-role-rights": {
+            "post": {
+                "tags": [
+                    "Gestion Utilisateurs - Rôles & Droits"
+                ],
+                "summary": "Assigner les droits à un rôle (style eyassur)",
+                "description": "Enregistre la liste exhaustive des droits alloués à un rôle spécifique pour le complexe",
+                "operationId": "assignRoleRights",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "role_id",
+                                    "permissions"
+                                ],
+                                "properties": {
+                                    "role_id": {
+                                        "type": "string",
+                                        "example": "receptionist"
+                                    },
+                                    "permissions": {
+                                        "type": "array",
+                                        "items": {
+                                            "type": "string"
+                                        },
+                                        "example": [
+                                            "reservations:manage",
+                                            "slots:manage"
+                                        ]
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Droits du rôle mis à jour avec succès"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/owner/team/custom-roles": {
+            "post": {
+                "tags": [
+                    "Gestion Utilisateurs - Rôles & Droits"
+                ],
+                "summary": "Créer un rôle personnalisé",
+                "description": "Permet au gérant du complexe de concevoir un nouveau rôle sur-mesure avec son intitulé et son pack de droits",
+                "operationId": "createCustomRole",
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "required": [
+                                    "name",
+                                    "permissions"
+                                ],
+                                "properties": {
+                                    "name": {
+                                        "type": "string",
+                                        "example": "Superviseur Tournois"
+                                    },
+                                    "description": {
+                                        "type": "string",
+                                        "example": "Gestion des événements et matchs du week-end"
+                                    },
+                                    "permissions": {
+                                        "type": "array",
+                                        "items": {
+                                            "type": "string"
+                                        },
+                                        "example": [
+                                            "reservations:manage",
+                                            "fields:manage"
+                                        ]
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "201": {
+                        "description": "Rôle personnalisé créé"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/owner/team/custom-roles/{id}": {
+            "put": {
+                "tags": [
+                    "Gestion Utilisateurs - Rôles & Droits"
+                ],
+                "summary": "Mettre à jour un rôle personnalisé",
+                "description": "Modifie l'intitulé, la description ou les droits d'un rôle personnalisé",
+                "operationId": "updateCustomRole",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "description": "ID du rôle (ex: custom_superviseur_...)",
+                        "required": true
+                    }
+                ],
+                "requestBody": {
+                    "required": true,
+                    "content": {
+                        "application/json": {
+                            "schema": {
+                                "properties": {
+                                    "name": {
+                                        "type": "string",
+                                        "example": "Superviseur Principal Tournois"
+                                    },
+                                    "description": {
+                                        "type": "string",
+                                        "example": "Mise à jour des attributions"
+                                    },
+                                    "permissions": {
+                                        "type": "array",
+                                        "items": {
+                                            "type": "string"
+                                        }
+                                    }
+                                },
+                                "type": "object"
+                            }
+                        }
+                    }
+                },
+                "responses": {
+                    "200": {
+                        "description": "Rôle personnalisé mis à jour"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            },
+            "delete": {
+                "tags": [
+                    "Gestion Utilisateurs - Rôles & Droits"
+                ],
+                "summary": "Supprimer un rôle personnalisé",
+                "description": "Supprime un rôle personnalisé créé par le complexe",
+                "operationId": "deleteCustomRole",
+                "parameters": [
+                    {
+                        "name": "id",
+                        "in": "path",
+                        "description": "ID du rôle personnalisé",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Rôle supprimé"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        },
+        "/api/owner/me/permissions": {
+            "get": {
+                "tags": [
+                    "Gestion Utilisateurs - Rôles & Droits"
+                ],
+                "summary": "Obtenir les permissions de l'utilisateur connecté sur son complexe",
+                "operationId": "getMyPermissions",
+                "responses": {
+                    "200": {
+                        "description": "Permissions actuelles"
+                    }
+                },
+                "security": [
+                    {
+                        "bearerAuth": []
+                    }
+                ]
+            }
+        }
+    },
+    "components": {
+        "securitySchemes": {
+            "bearerAuth": {
+                "type": "http",
+                "scheme": "bearer"
+            }
+        }
+    },
+    "tags": [
+        {
+            "name": "Authentification",
+            "description": "Authentification"
+        },
+        {
+            "name": "Terrains",
+            "description": "Terrains"
+        },
+        {
+            "name": "Terrains Propriétaire",
+            "description": "Terrains Propriétaire"
+        },
+        {
+            "name": "Paramétrage Complexe (Modules Gérant)",
+            "description": "Paramétrage Complexe (Modules Gérant)"
+        },
+        {
+            "name": "Gestion Utilisateurs - Collaborateurs",
+            "description": "Gestion Utilisateurs - Collaborateurs"
+        },
+        {
+            "name": "Gestion Utilisateurs - Rôles & Droits",
+            "description": "Gestion Utilisateurs - Rôles & Droits"
+        }
+    ]
+}

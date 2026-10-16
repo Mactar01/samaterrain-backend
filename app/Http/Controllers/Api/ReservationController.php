@@ -34,8 +34,13 @@ class ReservationController extends Controller
      */
     public function ownerIndex(Request $request)
     {
-        $owner = \App\Models\Owner::where('user_id', $request->user()->id)->first();
+        $user = $request->user();
+        $owner = $user->getOwner();
         if (!$owner) return response()->json([]);
+
+        if (!$user->hasOwnerPermission('reservations:manage')) {
+            return response()->json(['message' => 'Droits insuffisants pour voir les réservations.'], 403);
+        }
         
         $reservations = Reservation::with(['user', 'field', 'timeSlot', 'payment'])
             ->whereHas('field', function ($query) use ($owner) {
@@ -58,7 +63,15 @@ class ReservationController extends Controller
             'player_phone' => 'required|string|max:20',
         ]);
 
-        $owner = \App\Models\Owner::where('user_id', $request->user()->id)->firstOrFail();
+        $user = $request->user();
+        $owner = $user->getOwner();
+        if (!$owner) {
+            return response()->json(['message' => 'Complexe partenaire introuvable.'], 404);
+        }
+
+        if (!$user->hasOwnerPermission('reservations:manage')) {
+            return response()->json(['message' => 'Droits insuffisants pour enregistrer une réservation.'], 403);
+        }
 
         // Vérifier que le créneau appartient bien au gérant connecté
         $slot = TimeSlot::with('field')->findOrFail($data['time_slot_id']);

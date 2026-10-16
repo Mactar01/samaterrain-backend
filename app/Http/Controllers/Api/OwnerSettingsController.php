@@ -17,7 +17,7 @@ class OwnerSettingsController extends Controller
     public function getSettings(Request $request)
     {
         $user = $request->user();
-        $owner = $user->owner;
+        $owner = $user->getOwner();
 
         if (!$owner) {
             return response()->json(['message' => 'Profil propriétaire introuvable.'], 404);
@@ -43,10 +43,14 @@ class OwnerSettingsController extends Controller
     public function updateSettings(Request $request)
     {
         $user = $request->user();
-        $owner = $user->owner;
+        $owner = $user->getOwner();
 
         if (!$owner) {
             return response()->json(['message' => 'Profil propriétaire introuvable.'], 404);
+        }
+
+        if (!$user->hasOwnerPermission('settings:manage')) {
+            return response()->json(['message' => 'Droits insuffisants pour modifier les paramètres.'], 403);
         }
 
         $validated = $request->validate([
@@ -105,10 +109,14 @@ class OwnerSettingsController extends Controller
     public function getAccountingReport(Request $request)
     {
         $user = $request->user();
-        $owner = $user->owner;
+        $owner = $user->getOwner();
 
         if (!$owner) {
             return response()->json(['message' => 'Profil propriétaire introuvable.'], 404);
+        }
+
+        if (!$user->hasOwnerPermission('accounting:view')) {
+            return response()->json(['message' => 'Droits insuffisants pour consulter la comptabilité.'], 403);
         }
 
         $year = (int)$request->input('year', date('Y'));
@@ -200,10 +208,14 @@ class OwnerSettingsController extends Controller
     public function exportAccountingCsv(Request $request)
     {
         $user = $request->user();
-        $owner = $user->owner;
+        $owner = $user->getOwner();
 
         if (!$owner) {
             return response()->json(['message' => 'Profil propriétaire introuvable.'], 404);
+        }
+
+        if (!$user->hasOwnerPermission('accounting:view')) {
+            return response()->json(['message' => 'Droits insuffisants pour exporter la comptabilité.'], 403);
         }
 
         $year = (int)$request->input('year', date('Y'));

@@ -137,6 +137,10 @@ Route::middleware('auth:sanctum')->group(function () {
             Route::put('/owner/team/{id}',              [\App\Http\Controllers\Api\OwnerTeamController::class, 'update']);
             Route::delete('/owner/team/{id}',           [\App\Http\Controllers\Api\OwnerTeamController::class, 'destroy']);
             Route::get('/owner/team/permissions-matrix', [\App\Http\Controllers\Api\OwnerTeamController::class, 'getPermissionsMatrix']);
+            Route::post('/owner/team/assign-role-rights', [\App\Http\Controllers\Api\OwnerTeamController::class, 'assignRoleRights']);
+            Route::post('/owner/team/custom-roles',      [\App\Http\Controllers\Api\OwnerTeamController::class, 'createCustomRole']);
+            Route::put('/owner/team/custom-roles/{id}',  [\App\Http\Controllers\Api\OwnerTeamController::class, 'updateCustomRole']);
+            Route::delete('/owner/team/custom-roles/{id}', [\App\Http\Controllers\Api\OwnerTeamController::class, 'deleteCustomRole']);
             Route::get('/owner/me/permissions',         [\App\Http\Controllers\Api\OwnerTeamController::class, 'getMyPermissions']);
         });
 

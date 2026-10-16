@@ -131,14 +131,20 @@ class OwnerCollaborator extends Model
             return false;
         }
 
-        if ($this->role === 'manager') {
+        if ($this->role === 'manager' || $this->role === 'owner_master') {
             return true;
         }
 
-        $perms = $this->role === 'custom' && is_array($this->permissions)
-            ? $this->permissions
-            : self::defaultPermissionsForRole($this->role);
+        if ($this->role === 'custom' && is_array($this->permissions)) {
+            return in_array($permission, $this->permissions, true);
+        }
 
+        if ($this->owner) {
+            $perms = $this->owner->getRolePermissions($this->role);
+            return in_array($permission, $perms, true);
+        }
+
+        $perms = self::defaultPermissionsForRole($this->role);
         return in_array($permission, $perms, true);
     }
 }

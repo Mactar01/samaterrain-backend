@@ -50,7 +50,7 @@ class OwnerTeamController extends Controller
             ->where('owner_id', $owner->id)
             ->orderBy('created_at', 'desc')
             ->get()
-            ->map(function ($collab) {
+            ->map(function ($collab) use ($owner) {
                 return [
                     'id'           => $collab->id,
                     'user_id'      => $collab->user_id,
@@ -58,10 +58,10 @@ class OwnerTeamController extends Controller
                     'email'        => $collab->user?->email ?? '-',
                     'phone'        => $collab->user?->phone ?? '-',
                     'role'         => $collab->role,
-                    'role_label'   => $this->getRoleLabel($collab->role),
+                    'role_label'   => $this->getRoleLabel($collab->role, $owner),
                     'permissions'  => $collab->role === 'custom' && is_array($collab->permissions)
                         ? $collab->permissions
-                        : OwnerCollaborator::defaultPermissionsForRole($collab->role),
+                        : $owner->getRolePermissions($collab->role),
                     'is_active'    => $collab->is_active,
                     'is_primary'   => false,
                     'created_at'   => $collab->created_at->format('d/m/Y'),
@@ -79,44 +79,243 @@ class OwnerTeamController extends Controller
     }
 
     /**
-     * Matrice des rôles et des droits disponibles
+     * Matrice des rôles et des droits disponibles (Inspiré d'eyassur)
      */
-    public function getPermissionsMatrix()
+    public function getPermissionsMatrix(Request $request)
     {
+        $user = $request->user();
+        $owner = $user->getOwner();
+        $customRoles = $owner ? $owner->getCustomRoles() : [];
+
+        $defaultRoles = [
+            [
+                'role'        => 'manager',
+                'label'       => 'Administrateur Complexe',
+                'description' => 'Accès complet à toutes les fonctionnalités du complexe (terrains, finances, paramètres, équipe).',
+                'permissions' => $owner ? $owner->getRolePermissions('manager') : OwnerCollaborator::defaultPermissionsForRole('manager'),
+                'is_system'   => true,
+            ],
+            [
+                'role'        => 'receptionist',
+                'label'       => 'Accueil / Réceptionniste',
+                'description' => 'Gère les créneaux et les réservations manuelles au comptoir, sans accès financier.',
+                'permissions' => $owner ? $owner->getRolePermissions('receptionist') : OwnerCollaborator::defaultPermissionsForRole('receptionist'),
+                'is_system'   => true,
+            ],
+            [
+                'role'        => 'field_staff',
+                'label'       => 'Responsable Terrain / Arbitre',
+                'description' => 'Visualise le planning des matchs du jour et peut bloquer un créneau pour maintenance.',
+                'permissions' => $owner ? $owner->getRolePermissions('field_staff') : OwnerCollaborator::defaultPermissionsForRole('field_staff'),
+                'is_system'   => true,
+            ],
+            [
+                'role'        => 'accountant',
+                'label'       => 'Comptable / Gestionnaire',
+                'description' => 'Consulte les recettes, commissions plateforme et télécharge les relevés comptables CSV.',
+                'permissions' => $owner ? $owner->getRolePermissions('accountant') : OwnerCollaborator::defaultPermissionsForRole('accountant'),
+                'is_system'   => true,
+            ],
+            [
+                'role'        => 'custom',
+                'label'       => 'Rôle Sur-Mesure',
+                'description' => 'Sélectionnez manuellement chaque droit accordé à ce collaborateur.',
+                'permissions' => [],
+                'is_system'   => true,
+            ],
+        ];
+
         return response()->json([
             'available_permissions' => OwnerCollaborator::availablePermissions(),
-            'default_roles'         => [
-                [
-                    'role'        => 'manager',
-                    'label'       => 'Administrateur Complexe',
-                    'description' => 'Accès complet à toutes les fonctionnalités du complexe (terrains, finances, paramètres, équipe).',
-                    'permissions' => OwnerCollaborator::defaultPermissionsForRole('manager'),
-                ],
-                [
-                    'role'        => 'receptionist',
-                    'label'       => 'Accueil / Réceptionniste',
-                    'description' => 'Gère les créneaux et les réservations manuelles au comptoir, sans accès financier.',
-                    'permissions' => OwnerCollaborator::defaultPermissionsForRole('receptionist'),
-                ],
-                [
-                    'role'        => 'field_staff',
-                    'label'       => 'Responsable Terrain / Arbitre',
-                    'description' => 'Visualise le planning des matchs du jour et peut bloquer un créneau pour maintenance.',
-                    'permissions' => OwnerCollaborator::defaultPermissionsForRole('field_staff'),
-                ],
-                [
-                    'role'        => 'accountant',
-                    'label'       => 'Comptable / Gestionnaire',
-                    'description' => 'Consulte les recettes, commissions plateforme et télécharge les relevés comptables CSV.',
-                    'permissions' => OwnerCollaborator::defaultPermissionsForRole('accountant'),
-                ],
-                [
-                    'role'        => 'custom',
-                    'label'       => 'Rôle Sur-Mesure',
-                    'description' => 'Sélectionnez manuellement chaque droit accordé à ce collaborateur.',
-                    'permissions' => [],
-                ],
-            ],
+            'default_roles'         => $defaultRoles,
+            'custom_roles'          => $customRoles,
+        ]);
+    }
+
+    /**
+     * Assigner / modifier les droits d'un rôle (Inspiré d'eyassur assignOrganismRights)
+     */
+    public function assignRoleRights(Request $request)
+    {
+        $user = $request->user();
+        $owner = $user->getOwner();
+
+        if (!$owner) {
+            return response()->json(['message' => 'Complexe partenaire introuvable.'], 404);
+        }
+
+        if (!$user->hasOwnerPermission('team:manage')) {
+            return response()->json(['message' => 'Droits insuffisants pour modifier les droits d\'un rôle.'], 403);
+        }
+
+        $validated = $request->validate([
+            'role_id'       => 'required|string',
+            'permissions'   => 'present|array',
+            'permissions.*' => 'string',
+        ]);
+
+        $roleId = $validated['role_id'];
+        $newPerms = $validated['permissions'];
+
+        $settings = $owner->settings;
+
+        if (str_starts_with($roleId, 'custom_')) {
+            $customRoles = $settings['custom_roles'] ?? [];
+            $found = false;
+            foreach ($customRoles as &$cr) {
+                if (($cr['id'] ?? '') === $roleId) {
+                    $cr['permissions'] = $newPerms;
+                    $found = true;
+                    break;
+                }
+            }
+            if ($found) {
+                $settings['custom_roles'] = $customRoles;
+            }
+        } else {
+            $rolePerms = $settings['role_permissions'] ?? [];
+            $rolePerms[$roleId] = $newPerms;
+            $settings['role_permissions'] = $rolePerms;
+        }
+
+        $owner->settings = $settings;
+        $owner->save();
+
+        return response()->json([
+            'message'     => 'Droits du rôle mis à jour avec succès.',
+            'role_id'     => $roleId,
+            'permissions' => $newPerms,
+        ]);
+    }
+
+    /**
+     * Créer un nouveau rôle personnalisé pour le complexe
+     */
+    public function createCustomRole(Request $request)
+    {
+        $user = $request->user();
+        $owner = $user->getOwner();
+
+        if (!$owner) {
+            return response()->json(['message' => 'Complexe partenaire introuvable.'], 404);
+        }
+
+        if (!$user->hasOwnerPermission('team:manage')) {
+            return response()->json(['message' => 'Droits insuffisants pour créer un rôle.'], 403);
+        }
+
+        $validated = $request->validate([
+            'name'          => 'required|string|max:80',
+            'description'   => 'nullable|string|max:200',
+            'permissions'   => 'required|array|min:1',
+            'permissions.*' => 'string',
+        ]);
+
+        $settings = $owner->settings;
+        $customRoles = $settings['custom_roles'] ?? [];
+
+        $roleId = 'custom_' . Str::slug($validated['name'], '_') . '_' . substr(md5(uniqid()), 0, 4);
+
+        $newRole = [
+            'id'          => $roleId,
+            'name'        => $validated['name'],
+            'description' => $validated['description'] ?? 'Rôle personnalisé du complexe',
+            'permissions' => $validated['permissions'],
+            'is_system'   => false,
+            'created_at'  => now()->format('d/m/Y'),
+        ];
+
+        $customRoles[] = $newRole;
+        $settings['custom_roles'] = $customRoles;
+        $owner->settings = $settings;
+        $owner->save();
+
+        return response()->json([
+            'message' => 'Nouveau rôle créé avec succès.',
+            'role'    => $newRole,
+            'roles'   => $customRoles,
+        ], 201);
+    }
+
+    /**
+     * Mettre à jour un rôle personnalisé pour le complexe
+     */
+    public function updateCustomRole(Request $request, $id)
+    {
+        $user = $request->user();
+        $owner = $user->getOwner();
+
+        if (!$owner) {
+            return response()->json(['message' => 'Complexe partenaire introuvable.'], 404);
+        }
+
+        if (!$user->hasOwnerPermission('team:manage')) {
+            return response()->json(['message' => 'Droits insuffisants pour modifier un rôle.'], 403);
+        }
+
+        $validated = $request->validate([
+            'name'          => 'sometimes|string|max:80',
+            'description'   => 'nullable|string|max:200',
+            'permissions'   => 'sometimes|array',
+            'permissions.*' => 'string',
+        ]);
+
+        $settings = $owner->settings;
+        $customRoles = $settings['custom_roles'] ?? [];
+        $updatedRole = null;
+
+        foreach ($customRoles as &$cr) {
+            if (($cr['id'] ?? '') === $id) {
+                if (isset($validated['name'])) $cr['name'] = $validated['name'];
+                if (array_key_exists('description', $validated)) $cr['description'] = $validated['description'];
+                if (isset($validated['permissions'])) $cr['permissions'] = $validated['permissions'];
+                $updatedRole = $cr;
+                break;
+            }
+        }
+
+        if (!$updatedRole) {
+            return response()->json(['message' => 'Rôle personnalisé introuvable.'], 404);
+        }
+
+        $settings['custom_roles'] = $customRoles;
+        $owner->settings = $settings;
+        $owner->save();
+
+        return response()->json([
+            'message' => 'Rôle personnalisé mis à jour avec succès.',
+            'role'    => $updatedRole,
+            'roles'   => $customRoles,
+        ]);
+    }
+
+    /**
+     * Supprimer un rôle personnalisé
+     */
+    public function deleteCustomRole(Request $request, $id)
+    {
+        $user = $request->user();
+        $owner = $user->getOwner();
+
+        if (!$owner) {
+            return response()->json(['message' => 'Complexe introuvable.'], 404);
+        }
+
+        if (!$user->hasOwnerPermission('team:manage')) {
+            return response()->json(['message' => 'Droits insuffisants.'], 403);
+        }
+
+        $settings = $owner->settings;
+        $customRoles = $settings['custom_roles'] ?? [];
+
+        $customRoles = array_values(array_filter($customRoles, fn($r) => ($r['id'] ?? '') !== $id));
+        $settings['custom_roles'] = $customRoles;
+        $owner->settings = $settings;
+        $owner->save();
+
+        return response()->json([
+            'message' => 'Rôle supprimé avec succès.',
+            'roles'   => $customRoles,
         ]);
     }
 
@@ -195,7 +394,7 @@ class OwnerTeamController extends Controller
             'name'        => 'required|string|max:100',
             'email'       => 'required|email|max:150',
             'phone'       => 'nullable|string|max:25',
-            'role'        => 'required|string|in:manager,receptionist,field_staff,accountant,custom',
+            'role'        => 'required|string|max:100',
             'permissions' => 'nullable|array',
             'password'    => 'nullable|string|min:6',
         ]);
@@ -246,10 +445,10 @@ class OwnerTeamController extends Controller
                 'email'        => $targetUser->email,
                 'phone'        => $targetUser->phone,
                 'role'         => $collab->role,
-                'role_label'   => $this->getRoleLabel($collab->role),
+                'role_label'   => $this->getRoleLabel($collab->role, $owner),
                 'permissions'  => $collab->role === 'custom' && is_array($collab->permissions)
                     ? $collab->permissions
-                    : OwnerCollaborator::defaultPermissionsForRole($collab->role),
+                    : $owner->getRolePermissions($collab->role),
                 'is_active'    => $collab->is_active,
                 'is_primary'   => false,
                 'created_at'   => $collab->created_at->format('d/m/Y'),
@@ -279,7 +478,7 @@ class OwnerTeamController extends Controller
             ->firstOrFail();
 
         $validated = $request->validate([
-            'role'        => 'sometimes|string|in:manager,receptionist,field_staff,accountant,custom',
+            'role'        => 'sometimes|string|max:100',
             'permissions' => 'nullable|array',
             'is_active'   => 'sometimes|boolean',
         ]);
@@ -304,10 +503,10 @@ class OwnerTeamController extends Controller
                 'email'        => $collab->user?->email,
                 'phone'        => $collab->user?->phone,
                 'role'         => $collab->role,
-                'role_label'   => $this->getRoleLabel($collab->role),
+                'role_label'   => $this->getRoleLabel($collab->role, $owner),
                 'permissions'  => $collab->role === 'custom' && is_array($collab->permissions)
                     ? $collab->permissions
-                    : OwnerCollaborator::defaultPermissionsForRole($collab->role),
+                    : $owner->getRolePermissions($collab->role),
                 'is_active'    => $collab->is_active,
                 'is_primary'   => false,
                 'created_at'   => $collab->created_at->format('d/m/Y'),
@@ -342,15 +541,29 @@ class OwnerTeamController extends Controller
         ]);
     }
 
-    private function getRoleLabel(string $role): string
+    private function getRoleLabel(string $role, ?Owner $owner = null): string
     {
-        return match ($role) {
+        $labels = [
+            'owner_master' => 'Gérant Propriétaire (Admin Complexe)',
             'manager'      => 'Administrateur Complexe',
             'receptionist' => 'Accueil / Réceptionniste',
             'field_staff'  => 'Responsable Terrain',
             'accountant'   => 'Comptable / Gestionnaire',
             'custom'       => 'Rôle Sur-Mesure',
-            default        => 'Collaborateur',
-        };
+        ];
+
+        if (isset($labels[$role])) {
+            return $labels[$role];
+        }
+
+        if ($owner) {
+            foreach ($owner->getCustomRoles() as $cr) {
+                if (($cr['id'] ?? '') === $role) {
+                    return $cr['name'];
+                }
+            }
+        }
+
+        return ucfirst(str_replace('_', ' ', $role));
     }
 }

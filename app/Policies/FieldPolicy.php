@@ -29,12 +29,14 @@ class FieldPolicy
 
     public function create(User $user)
     {
-        return $user->isOwner();
+        return ($user->isOwner() || $user->isAdmin()) && $user->hasOwnerPermission('fields:manage');
     }
 
     public function update(User $user, Field $field)
     {
-        return $user->isOwner() && $field->owner && $field->owner->user_id === $user->id;
+        if ($user->isAdmin()) return true;
+        $owner = $user->getOwner();
+        return $user->isOwner() && $owner && $field->owner_id === $owner->id && $user->hasOwnerPermission('fields:manage');
     }
 
     public function delete(User $user, Field $field)

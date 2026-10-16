@@ -12,11 +12,16 @@ class DashboardController extends Controller
     public function index(Request $request)
     {
         $user = $request->user();
-        if (!$user->isOwner()) {
+        if (!$user->isOwner() && !$user->isAdmin()) {
             return response()->json(['message' => 'Unauthorized'], 403);
         }
 
-        $ownerId = $user->owner->id;
+        $owner = $user->getOwner();
+        if (!$owner) {
+            return response()->json(['message' => 'Complexe introuvable.'], 404);
+        }
+
+        $ownerId = $owner->id;
 
         // Base query for confirmed/completed reservations belonging to this owner
         $baseQuery = Reservation::query()

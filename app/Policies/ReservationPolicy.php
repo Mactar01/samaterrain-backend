@@ -19,22 +19,30 @@ class ReservationPolicy
 
     public function view(User $user, Reservation $reservation)
     {
-        // Un joueur voit ses réservations. Un loueur voit les réservations de ses terrains.
+        if ($user->isAdmin()) return true;
         if ($reservation->user_id === $user->id) return true;
-        if ($user->isOwner() && $reservation->field->owner->user_id === $user->id) return true;
+        $owner = $user->getOwner();
+        if ($user->isOwner() && $owner && $reservation->field && $reservation->field->owner_id === $owner->id) {
+            return true;
+        }
         return false;
     }
 
     public function cancel(User $user, Reservation $reservation)
     {
+        if ($user->isAdmin()) return true;
         if ($reservation->user_id === $user->id) return true;
-        if ($user->isOwner() && $reservation->field->owner->user_id === $user->id) return true;
+        $owner = $user->getOwner();
+        if ($user->isOwner() && $owner && $reservation->field && $reservation->field->owner_id === $owner->id && $user->hasOwnerPermission('reservations:manage')) {
+            return true;
+        }
         return false;
     }
 
     public function confirm(User $user, Reservation $reservation)
     {
-        // Seul le loueur du terrain concerné peut confirmer
-        return $user->isOwner() && $reservation->field->owner->user_id === $user->id;
+        if ($user->isAdmin()) return true;
+        $owner = $user->getOwner();
+        return $user->isOwner() && $owner && $reservation->field && $reservation->field->owner_id === $owner->id && $user->hasOwnerPermission('reservations:manage');
     }
 }

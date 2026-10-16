@@ -113,11 +113,13 @@ class FieldController extends Controller
 
         $user = $request->user();
         
-        // Trouver ou créer le profil Owner pour cet utilisateur
-        $owner = Owner::firstOrCreate(
-            ['user_id' => $user->id],
-            ['business_name' => $user->name . ' Sports']
-        );
+        $owner = $user->getOwner();
+        if (!$owner) {
+            $owner = Owner::firstOrCreate(
+                ['user_id' => $user->id],
+                ['business_name' => $user->name . ' Sports']
+            );
+        }
 
         $field = $owner->fields()->create($request->validated());
 
@@ -224,11 +226,12 @@ class FieldController extends Controller
      */
     public function myFields(Request $request)
     {
-        if (!$request->user()->isOwner()) {
+        $user = $request->user();
+        if (!$user->isOwner() && !$user->isAdmin()) {
             return response()->json(['message' => 'Unauthorized'], 403);
         }
 
-        $owner = Owner::where('user_id', $request->user()->id)->first();
+        $owner = $user->getOwner();
 
         if (!$owner) {
             return response()->json([]); // Aucun terrain encore
