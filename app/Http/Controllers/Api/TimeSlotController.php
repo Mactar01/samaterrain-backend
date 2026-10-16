@@ -29,7 +29,9 @@ class TimeSlotController extends Controller
             $query->where('date', '>=', now()->toDateString());
         }
 
-        $slots = $query->orderBy('date')->orderBy('start_time')->get();
+        $slots = $query->orderBy('date')
+            ->orderByRaw("CASE WHEN TIME(start_time) < '06:00:00' THEN 1 ELSE 0 END, start_time")
+            ->get();
 
         return response()->json($slots);
     }
@@ -127,14 +129,8 @@ class TimeSlotController extends Controller
                 function ($attribute, $value, $fail) use ($request) {
                     $startTime = $request->input('start_time');
                     if (!$startTime) return;
-                    if ($value === '00:00') {
-                        if ($startTime === '00:00') {
-                            $fail("L'heure de fin ne peut pas être identique à l'heure de début.");
-                        }
-                        return;
-                    }
-                    if ($value <= $startTime) {
-                        $fail("L'heure de fin doit être postérieure à l'heure de début.");
+                    if ($value === $startTime) {
+                        $fail("L'heure de fin ne peut pas être identique à l'heure de début.");
                     }
                 }
             ],
