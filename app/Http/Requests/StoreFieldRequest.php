@@ -27,7 +27,11 @@ class StoreFieldRequest extends FormRequest
             'currency'       => 'nullable|string|max:5',
             'amenities'      => 'nullable|array',
             'is_active'      => 'nullable|boolean',
-            'image'          => 'nullable|image|mimes:jpeg,png,jpg,gif|max:5120', // Max 5MB
+            'image'          => 'nullable|image|mimes:jpeg,png,jpg,gif,webp|max:5120',
+            'images'         => 'nullable|array',
+            'images.*'       => 'image|mimes:jpeg,png,jpg,gif,webp|max:5120',
+            'photos'         => 'nullable|array',
+            'photos.*'       => 'image|mimes:jpeg,png,jpg,gif,webp|max:5120',
         ];
     }
 }

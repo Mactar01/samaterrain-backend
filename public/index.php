@@ -2,6 +2,11 @@
 
 // Empêcher les notices et warnings PHP de polluer les réponses API JSON
 ini_set('display_errors', '0');
+ini_set('display_startup_errors', '0');
+error_reporting(E_ALL & ~E_NOTICE & ~E_WARNING & ~E_DEPRECATED);
+if (ob_get_level() > 0) {
+    ob_clean();
+}
 
 use Illuminate\Foundation\Application;
 use Illuminate\Http\Request;

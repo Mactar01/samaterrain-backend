@@ -121,12 +121,27 @@ class FieldController extends Controller
 
         $field = $owner->fields()->create($request->validated());
 
-        if ($request->hasFile('image')) {
-            $path = $request->file('image')->store('fields', 'public');
+        $images = [];
+        if ($request->hasFile('images')) {
+            $images = $request->file('images');
+        } elseif ($request->hasFile('photos')) {
+            $images = $request->file('photos');
+        } elseif ($request->hasFile('image')) {
+            $images = [$request->file('image')];
+        } elseif ($request->hasFile('photo')) {
+            $images = [$request->file('photo')];
+        }
+
+        foreach ($images as $index => $imgFile) {
+            $path = $imgFile->store('fields', 'public');
             $field->images()->create([
                 'url' => '/storage/' . $path,
-                'is_primary' => true
+                'is_primary' => $index === 0,
+                'sort_order' => $index + 1
             ]);
+            if ($index === 0) {
+                $field->update(['photo' => $path]);
+            }
         }
 
         return response()->json([
@@ -146,20 +161,42 @@ class FieldController extends Controller
 
         $validated = $request->validated();
 
-        if ($request->hasFile('photo')) {
-            // Delete old photo if exists
-            if ($field->photo) {
-                Storage::disk('public')->delete($field->photo);
+        $uploadedPhotos = [];
+        if ($request->hasFile('photos')) {
+            $uploadedPhotos = $request->file('photos');
+        } elseif ($request->hasFile('images')) {
+            $uploadedPhotos = $request->file('images');
+        } elseif ($request->hasFile('photo')) {
+            $uploadedPhotos = [$request->file('photo')];
+        } elseif ($request->hasFile('image')) {
+            $uploadedPhotos = [$request->file('image')];
+        }
+
+        if (!empty($uploadedPhotos)) {
+            $currentMaxOrder = $field->images()->max('sort_order') ?? 0;
+            foreach ($uploadedPhotos as $index => $photoFile) {
+                $path = $photoFile->store('fields', 'public');
+
+                if ($index === 0 && (!$field->photo || count($uploadedPhotos) === 1)) {
+                    if ($field->photo) {
+                        Storage::disk('public')->delete($field->photo);
+                    }
+                    $validated['photo'] = $path;
+                }
+
+                $field->images()->create([
+                    'url' => '/storage/' . $path,
+                    'is_primary' => $index === 0 && $field->images()->count() === 0,
+                    'sort_order' => $currentMaxOrder + $index + 1
+                ]);
             }
-            // Store new photo
-            $path = $request->file('photo')->store('fields', 'public');
-            $validated['photo'] = $path;
         }
 
         $field->update($validated);
 
         // Include full url for photo if needed
         $field->photo_url = $field->photo ? url('storage/' . $field->photo) : null;
+        $field->load('images');
 
         return response()->json([
             'message' => 'Terrain mis à jour avec succès.',
@@ -197,7 +234,7 @@ class FieldController extends Controller
             return response()->json([]); // Aucun terrain encore
         }
 
-        $fields = $owner->fields()->with('primaryImage')->get();
+        $fields = $owner->fields()->with(['primaryImage', 'images'])->get();
 
         return response()->json($fields);
     }

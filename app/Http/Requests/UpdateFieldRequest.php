@@ -28,6 +28,10 @@ class UpdateFieldRequest extends FormRequest
             'amenities'      => 'nullable|array',
             'is_active'      => 'nullable|boolean',
             'photo'          => 'nullable|image|max:5120',
+            'photos'         => 'nullable|array',
+            'photos.*'       => 'image|max:5120',
+            'images'         => 'nullable|array',
+            'images.*'       => 'image|max:5120',
         ];
     }
 }
