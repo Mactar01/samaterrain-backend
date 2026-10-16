@@ -13,11 +13,13 @@ class NotificationController extends Controller
      */
     public function index(Request $request): JsonResponse
     {
-        $notifications = $request->user()->notifications()->paginate(20);
+        $user = $request->user();
+        $notifications = $user->notifications()->take(50)->get();
+        $unreadCount = $user->unreadNotifications()->count();
 
         return response()->json([
             'notifications' => $notifications,
-            'unread_count'  => $request->user()->unreadNotifications()->count()
+            'unread_count'  => $unreadCount
         ]);
     }
 
@@ -26,11 +28,14 @@ class NotificationController extends Controller
      */
     public function markRead(Request $request, $id): JsonResponse
     {
-        $notification = $request->user()->notifications()->findOrFail($id);
-        $notification->markAsRead();
+        $notification = $request->user()->notifications()->where('id', $id)->first();
+        if ($notification) {
+            $notification->markAsRead();
+        }
 
         return response()->json([
             'message' => 'Notification marquée comme lue.',
+            'unread_count' => $request->user()->unreadNotifications()->count()
         ]);
     }
 
@@ -43,6 +48,7 @@ class NotificationController extends Controller
 
         return response()->json([
             'message' => 'Toutes les notifications ont été marquées comme lues.',
+            'unread_count' => 0
         ]);
     }
 }

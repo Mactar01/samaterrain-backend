@@ -82,10 +82,14 @@ Route::middleware('auth:sanctum')->group(function () {
         // Route::post('/payments',        [PaymentController::class, 'initiate']);
         // Route::get('/payments/{id}',    [PaymentController::class, 'show']);
 
-        // Notifications
-        Route::get('/notifications',    [App\Http\Controllers\Api\NotificationController::class, 'index']);
-        Route::patch('/notifications/{id}/read', [App\Http\Controllers\Api\NotificationController::class, 'markRead']);
-        Route::patch('/notifications/read-all',  [App\Http\Controllers\Api\NotificationController::class, 'markAllRead']);
+        // Notifications (standard et alias /owner/notifications)
+        Route::get('/notifications',             [App\Http\Controllers\Api\NotificationController::class, 'index']);
+        Route::match(['post', 'patch'], '/notifications/{id}/read', [App\Http\Controllers\Api\NotificationController::class, 'markRead']);
+        Route::match(['post', 'patch'], '/notifications/read-all',  [App\Http\Controllers\Api\NotificationController::class, 'markAllRead']);
+
+        Route::get('/owner/notifications',       [App\Http\Controllers\Api\NotificationController::class, 'index']);
+        Route::match(['post', 'patch'], '/owner/notifications/{id}/read', [App\Http\Controllers\Api\NotificationController::class, 'markRead']);
+        Route::match(['post', 'patch'], '/owner/notifications/read-all',  [App\Http\Controllers\Api\NotificationController::class, 'markAllRead']);
 
         // Matchs
         // Route::post('/matches',         [MatchController::class, 'store']);

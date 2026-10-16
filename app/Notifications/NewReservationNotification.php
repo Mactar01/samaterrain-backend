@@ -8,7 +8,7 @@ use Illuminate\Notifications\Notification;
 use App\Models\Reservation;
 use App\Channels\FcmChannel;
 
-class NewReservationNotification extends Notification implements ShouldQueue
+class NewReservationNotification extends Notification
 {
     use Queueable;
 
@@ -29,7 +29,11 @@ class NewReservationNotification extends Notification implements ShouldQueue
      */
     public function via(object $notifiable): array
     {
-        return ['database', FcmChannel::class];
+        $channels = ['database'];
+        if (!empty($notifiable->fcm_token)) {
+            $channels[] = FcmChannel::class;
+        }
+        return $channels;
     }
 
     /**

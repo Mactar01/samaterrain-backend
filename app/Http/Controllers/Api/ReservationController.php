@@ -72,13 +72,14 @@ class ReservationController extends Controller
         // Le client n'a pas forcément de compte : on note son nom et son numéro sur la réservation,
         // rattachée au compte du gérant. (Avant, un compte joueur était créé avec ce numéro,
         // ce qui empêchait la vraie personne de s'inscrire ensuite.)
-        DB::transaction(function () use ($slot, $request, $data, $price, $commission) {
+        $res = null;
+        DB::transaction(function () use ($slot, $request, $data, $price, $commission, &$res) {
             $locked = TimeSlot::where('id', $slot->id)->lockForUpdate()->first();
             if (!$locked->isAvailable()) {
                 abort(409, "Ce créneau n'est pas disponible.");
             }
 
-            Reservation::create([
+            $res = Reservation::create([
                 'user_id'      => $request->user()->id,
                 'guest_name'   => $data['player_name'],
                 'guest_phone'  => $data['player_phone'],
@@ -92,6 +93,14 @@ class ReservationController extends Controller
 
             $locked->update(['status' => 'reserved']);
         });
+
+        if ($res) {
+            try {
+                $request->user()->notify(new \App\Notifications\NewReservationNotification($res));
+            } catch (\Exception $e) {
+                \Illuminate\Support\Facades\Log::error('Erreur notification manuelle: ' . $e->getMessage());
+            }
+        }
 
         return response()->json([
             'message' => 'Réservation manuelle ajoutée avec succès.',
