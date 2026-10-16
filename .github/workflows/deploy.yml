@@ -23,8 +23,9 @@ jobs:
             set -e
             echo "🚀 [GitHub Actions] Début du déploiement Backend..."
             cd /var/www/myterrain/backend
-            git checkout preprod
-            git pull origin preprod
+            git checkout -f preprod
+            git fetch origin preprod
+            git reset --hard origin/preprod
             cd /var/www/myterrain
             docker-compose up -d --build backend
             docker-compose exec -T backend php artisan migrate --force

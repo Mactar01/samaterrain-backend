@@ -30,8 +30,7 @@
         "psr-4": {
             "App\\": "app/",
             "Database\\Factories\\": "database/factories/",
-            "Database\\Seeders\\": "database/seeders/",
-            "L5Swagger\\": "vendor/darkaonline/l5-swagger/src/"
+            "Database\\Seeders\\": "database/seeders/"
         }
     },
     "autoload-dev": {

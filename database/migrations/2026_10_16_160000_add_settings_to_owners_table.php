@@ -8,15 +8,19 @@ return new class extends Migration
 {
     public function up(): void
     {
-        Schema::table('owners', function (Blueprint $table) {
-            $table->json('settings')->nullable()->after('commission_rate');
-        });
+        if (Schema::hasTable('owners') && !Schema::hasColumn('owners', 'settings')) {
+            Schema::table('owners', function (Blueprint $table) {
+                $table->json('settings')->nullable();
+            });
+        }
     }
 
     public function down(): void
     {
-        Schema::table('owners', function (Blueprint $table) {
-            $table->dropColumn('settings');
-        });
+        if (Schema::hasTable('owners') && Schema::hasColumn('owners', 'settings')) {
+            Schema::table('owners', function (Blueprint $table) {
+                $table->dropColumn('settings');
+            });
+        }
     }
 };

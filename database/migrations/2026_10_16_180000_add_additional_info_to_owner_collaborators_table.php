@@ -8,15 +8,19 @@ return new class extends Migration
 {
     public function up(): void
     {
-        Schema::table('owner_collaborators', function (Blueprint $table) {
-            $table->json('additional_info')->nullable()->after('permissions');
-        });
+        if (Schema::hasTable('owner_collaborators') && !Schema::hasColumn('owner_collaborators', 'additional_info')) {
+            Schema::table('owner_collaborators', function (Blueprint $table) {
+                $table->json('additional_info')->nullable();
+            });
+        }
     }
 
     public function down(): void
     {
-        Schema::table('owner_collaborators', function (Blueprint $table) {
-            $table->dropColumn('additional_info');
-        });
+        if (Schema::hasTable('owner_collaborators') && Schema::hasColumn('owner_collaborators', 'additional_info')) {
+            Schema::table('owner_collaborators', function (Blueprint $table) {
+                $table->dropColumn('additional_info');
+            });
+        }
     }
 };
