@@ -136,19 +136,20 @@ class FieldController extends Controller
 
         foreach ($images as $index => $imgFile) {
             $path = $imgFile->store('fields', 'public');
+            $dataUri = Field::uploadedFileToDataUri($imgFile) ?: ('/storage/' . $path);
             $field->images()->create([
-                'url' => '/storage/' . $path,
+                'url' => $dataUri,
                 'is_primary' => $index === 0,
                 'sort_order' => $index + 1
             ]);
             if ($index === 0) {
-                $field->update(['photo' => $path]);
+                $field->update(['photo' => $dataUri]);
             }
         }
 
         return response()->json([
             'message' => 'Terrain créé avec succès.',
-            'field' => $field->load('images')
+            'field' => $field->fresh(['primaryImage', 'images'])
         ], 201);
     }
 
@@ -175,19 +176,21 @@ class FieldController extends Controller
         }
 
         if (!empty($uploadedPhotos)) {
+            $this->pruneMissingFieldImages($field);
             $currentMaxOrder = $field->images()->max('sort_order') ?? 0;
             foreach ($uploadedPhotos as $index => $photoFile) {
                 $path = $photoFile->store('fields', 'public');
+                $dataUri = Field::uploadedFileToDataUri($photoFile) ?: ('/storage/' . $path);
 
-                if ($index === 0 && (!$field->photo || count($uploadedPhotos) === 1)) {
-                    if ($field->photo) {
+                if ($index === 0 && (!$field->photo || !Field::resolveImageUrl($field->photo) || count($uploadedPhotos) === 1)) {
+                    if ($field->photo && !str_starts_with($field->photo, 'data:image')) {
                         Storage::disk('public')->delete($field->photo);
                     }
-                    $validated['photo'] = $path;
+                    $validated['photo'] = $dataUri;
                 }
 
                 $field->images()->create([
-                    'url' => '/storage/' . $path,
+                    'url' => $dataUri,
                     'is_primary' => $index === 0 && $field->images()->count() === 0,
                     'sort_order' => $currentMaxOrder + $index + 1
                 ]);
@@ -195,14 +198,11 @@ class FieldController extends Controller
         }
 
         $field->update($validated);
-
-        // Include full url for photo if needed
-        $field->photo_url = $field->photo ? url('storage/' . $field->photo) : null;
-        $field->load('images');
+        $this->pruneMissingFieldImages($field);
 
         return response()->json([
             'message' => 'Terrain mis à jour avec succès.',
-            'field' => $field
+            'field' => $field->fresh(['primaryImage', 'images'])
         ]);
     }
     /**
@@ -238,7 +238,32 @@ class FieldController extends Controller
         }
 
         $fields = $owner->fields()->with(['primaryImage', 'images'])->get();
+        foreach ($fields as $field) {
+            if ($this->pruneMissingFieldImages($field)) {
+                $field->load(['primaryImage', 'images']);
+            }
+        }
 
         return response()->json($fields);
+    }
+
+    private function pruneMissingFieldImages(Field $field): bool
+    {
+        $changed = false;
+        $images = $field->relationLoaded('images') ? $field->images : $field->images()->get();
+        foreach ($images as $img) {
+            $rawUrl = $img->getRawOriginal('url');
+            if (Field::resolveImageUrl($rawUrl) === null) {
+                $img->delete();
+                $changed = true;
+            }
+        }
+        if ($field->photo && Field::resolveImageUrl($field->photo) === null) {
+            $validFirst = $field->images()->orderByDesc('is_primary')->orderBy('sort_order')->first();
+            $field->photo = $validFirst ? $validFirst->getRawOriginal('url') : null;
+            $field->saveQuietly();
+            $changed = true;
+        }
+        return $changed;
     }
 }

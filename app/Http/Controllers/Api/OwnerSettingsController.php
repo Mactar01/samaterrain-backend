@@ -89,10 +89,28 @@ class OwnerSettingsController extends Controller
             'settings.accounting'                     => 'nullable|array',
             'settings.accounting.default_export_format' => 'nullable|string|in:csv,excel',
             'settings.accounting.include_customer_phone' => 'nullable|boolean',
+
+            'settings.branding'                       => 'nullable|array',
+            'settings.branding.primaryColor'          => 'nullable|string|max:30',
+            'settings.branding.secondaryColor'        => 'nullable|string|max:30',
+            'settings.branding.logoUrl'               => 'nullable|string',
+            'settings.branding.logoPosition'          => 'nullable|string|in:left,center,right',
+            'settings.branding.bgStyle'               => 'nullable|string|max:30',
+            'settings.branding.customBgUrl'           => 'nullable|string',
+            'settings.branding.coverUrl'              => 'nullable|string',
+            'settings.branding.businessName'          => 'nullable|string|max:150',
+            'settings.branding.slogan'                => 'nullable|string|max:255',
+            'settings.branding.sloganSubtitle'        => 'nullable|string|max:500',
         ]);
 
-        $current = $owner->settings;
+        $current = $owner->getRawSettings();
         $merged = array_replace_recursive($current, $validated['settings']);
+        if (array_key_exists('branding', $validated['settings'])) {
+            $merged['branding'] = $validated['settings']['branding'];
+            if (!empty($merged['branding']['businessName'])) {
+                $owner->business_name = $merged['branding']['businessName'];
+            }
+        }
 
         $owner->settings = $merged;
         $owner->save();
@@ -100,6 +118,7 @@ class OwnerSettingsController extends Controller
         return response()->json([
             'message'  => 'Paramètres enregistrés avec succès.',
             'settings' => $owner->settings,
+            'branding' => $merged['branding'] ?? null,
         ]);
     }
 

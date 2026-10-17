@@ -15,6 +15,11 @@ class FieldImage extends Model
         return ['is_primary' => 'boolean'];
     }
 
+    public function getUrlAttribute($value): ?string
+    {
+        return Field::resolveImageUrl($value);
+    }
+
     public function field()
     {
         return $this->belongsTo(Field::class);

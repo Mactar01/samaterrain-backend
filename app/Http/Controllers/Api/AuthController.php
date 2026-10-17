@@ -215,8 +215,9 @@ class AuthController extends Controller
         if (array_key_exists('phone', $data)) $user->phone = $data['phone'];
 
         if ($request->hasFile('avatar_file')) {
-            $path = $request->file('avatar_file')->store('avatars', 'public');
-            $user->avatar = url(Storage::url($path));
+            $file = $request->file('avatar_file');
+            $path = $file->store('avatars', 'public');
+            $user->avatar = \App\Models\Field::uploadedFileToDataUri($file, 500, 500, 88) ?: ('/storage/' . $path);
         } elseif (array_key_exists('avatar', $data)) {
             $rawAvatar = $data['avatar'];
             if ($rawAvatar && str_starts_with($rawAvatar, 'data:image')) {
@@ -229,8 +230,9 @@ class AuthController extends Controller
                     elseif (str_contains($type, 'webp')) $ext = 'webp';
                     $filename = 'avatars/avatar_' . $user->id . '_' . time() . '.' . $ext;
                     Storage::disk('public')->put($filename, $decoded);
-                    $user->avatar = url(Storage::url($filename));
                 }
+                // Conserver directement le data URI en base (LONGTEXT) pour survivre à tout redéploiement
+                $user->avatar = $rawAvatar;
             } else {
                 $user->avatar = $rawAvatar;
             }
@@ -249,17 +251,10 @@ class AuthController extends Controller
     // ─────────────────────────────────────────────────────────────────
     private function userResource(User $user): array
     {
-        $avatar = $user->avatar;
-        if ($avatar) {
-            if (str_contains($avatar, 'trycloudflare.com')) {
-                $avatar = preg_replace('#^https?://[^/]+#', config('app.url'), $avatar);
-            } elseif (str_starts_with($avatar, '/storage')) {
-                $avatar = rtrim(config('app.url'), '/') . $avatar;
-            } elseif (str_starts_with($avatar, 'storage/')) {
-                $avatar = rtrim(config('app.url'), '/') . '/' . $avatar;
-            } elseif (!str_starts_with($avatar, 'http') && !str_starts_with($avatar, 'data:')) {
-                $avatar = rtrim(config('app.url'), '/') . '/storage/' . ltrim($avatar, '/');
-            }
+        $avatar = $user->avatar ? \App\Models\Field::resolveImageUrl($user->avatar) : null;
+        if ($user->avatar && $avatar === null) {
+            $user->avatar = null;
+            $user->saveQuietly();
         }
 
         $data = [
@@ -305,6 +300,8 @@ class AuthController extends Controller
                 $roleLabel = ucfirst(str_replace('_', ' ', $roleKey));
             }
 
+            $rawSettings = $owner->getRawSettings();
+
             $data['owner'] = [
                 'id'            => $owner->id,
                 'business_name' => $owner->business_name,
@@ -313,6 +310,7 @@ class AuthController extends Controller
                 'role'          => $roleKey,
                 'role_label'    => $roleLabel,
                 'permissions'   => $perms,
+                'branding'      => $rawSettings['branding'] ?? null,
             ];
         }
 

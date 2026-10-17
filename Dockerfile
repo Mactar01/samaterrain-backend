@@ -3,6 +3,8 @@ FROM php:8.2-apache
 # Installer les dépendances système
 RUN apt-get update && apt-get install -y \
     libpng-dev \
+    libjpeg62-turbo-dev \
+    libwebp-dev \
     libonig-dev \
     libxml2-dev \
     zip \
@@ -14,8 +16,12 @@ RUN apt-get update && apt-get install -y \
 # Nettoyer le cache apt
 RUN apt-get clean && rm -rf /var/lib/apt/lists/*
 
-# Installer les extensions PHP requises par Laravel
-RUN docker-php-ext-install pdo_mysql pdo_pgsql mbstring exif pcntl bcmath gd
+# Installer les extensions PHP requises par Laravel (avec support JPEG/WebP pour GD)
+RUN docker-php-ext-configure gd --with-jpeg --with-webp \
+    && docker-php-ext-install pdo_mysql pdo_pgsql mbstring exif pcntl bcmath gd
+
+# Augmenter les limites d'upload PHP pour les photos de terrains et avatars
+RUN printf "upload_max_filesize=32M\npost_max_size=64M\nmemory_limit=256M\n" > /usr/local/etc/php/conf.d/uploads.ini
 
 # Activer le mod_rewrite d'Apache
 RUN a2enmod rewrite

@@ -23,7 +23,9 @@ class FieldImageController extends Controller
         $this->authorize('update', $field);
 
         if ($request->hasFile('image')) {
-            $path = $request->file('image')->store('fields', 'public');
+            $imgFile = $request->file('image');
+            $path = $imgFile->store('fields', 'public');
+            $dataUri = Field::uploadedFileToDataUri($imgFile) ?: Storage::url($path);
             
             // Si c'est la première image, on la met en principale
             $isFirstImage = $field->images()->count() === 0;
@@ -32,12 +34,13 @@ class FieldImageController extends Controller
             if ($isPrimary) {
                 // Enlever le statut principal des autres
                 $field->images()->update(['is_primary' => false]);
+                $field->update(['photo' => $dataUri]);
             }
 
             $image = $field->images()->create([
-                'url' => Storage::url($path),
+                'url' => $dataUri,
                 'is_primary' => $isPrimary,
-                'sort_order' => $field->images()->max('sort_order') + 1
+                'sort_order' => ($field->images()->max('sort_order') ?? 0) + 1
             ]);
 
             return response()->json([
@@ -60,11 +63,24 @@ class FieldImageController extends Controller
 
         $image = $field->images()->findOrFail($imageId);
 
-        // Extraire le chemin du fichier pour le supprimer du stockage
-        $path = str_replace('/storage/', '', $image->url);
-        Storage::disk('public')->delete($path);
+        $rawUrl = $image->getRawOriginal('url');
+        if ($rawUrl && !str_starts_with($rawUrl, 'data:image')) {
+            $path = str_replace('/storage/', '', $rawUrl);
+            Storage::disk('public')->delete($path);
+        }
 
+        $wasPrimary = $image->is_primary || $field->photo === $rawUrl;
         $image->delete();
+
+        if ($wasPrimary) {
+            $nextImg = $field->images()->orderByDesc('is_primary')->orderBy('sort_order')->first();
+            if ($nextImg) {
+                $nextImg->update(['is_primary' => true]);
+                $field->update(['photo' => $nextImg->getRawOriginal('url')]);
+            } else {
+                $field->update(['photo' => null]);
+            }
+        }
 
         return response()->json(['message' => 'Image supprimée avec succès.']);
     }

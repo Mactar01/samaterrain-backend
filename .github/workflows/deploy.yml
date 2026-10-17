@@ -34,8 +34,21 @@ jobs:
             git fetch origin preprod
             git reset --hard origin/preprod
             cd /var/www/myterrain
+            mkdir -p /var/www/myterrain/shared_storage/public
+            BACKEND_CID=$(docker-compose ps -q backend 2>/dev/null || true)
+            if [ -n "$BACKEND_CID" ]; then
+              echo "💾 Sauvegarde des fichiers uploadés (storage/app/public)..."
+              docker cp "$BACKEND_CID":/var/www/html/storage/app/public/. /var/www/myterrain/shared_storage/public/ || true
+            fi
             docker-compose up -d --build backend
             sleep 5
+            NEW_BACKEND_CID=$(docker-compose ps -q backend 2>/dev/null || true)
+            if [ -n "$NEW_BACKEND_CID" ]; then
+              echo "📦 Restauration des fichiers uploadés dans le nouveau conteneur..."
+              docker cp /var/www/myterrain/shared_storage/public/. "$NEW_BACKEND_CID":/var/www/html/storage/app/public/ || true
+              docker-compose exec -T backend php artisan storage:link --force || true
+              docker-compose exec -T backend chown -R www-data:www-data /var/www/html/storage /var/www/html/bootstrap/cache || true
+            fi
             docker-compose exec -T backend php artisan migrate --force
             docker-compose exec -T backend php artisan optimize:clear
             echo "🧹 Nettoyage des images temporaires post-build..."
