@@ -59,9 +59,7 @@ class OwnerTeamController extends Controller
                     'phone'        => $collab->user?->phone ?? '-',
                     'role'         => $collab->role,
                     'role_label'   => $this->getRoleLabel($collab->role, $owner),
-                    'permissions'     => $collab->role === 'custom' && is_array($collab->permissions)
-                        ? $collab->permissions
-                        : $owner->getRolePermissions($collab->role),
+                    'permissions'     => $collab->getEffectivePermissions(),
                     'additional_info' => $collab->additional_info,
                     'is_active'       => $collab->is_active,
                     'is_primary'      => false,
@@ -362,15 +360,13 @@ class OwnerTeamController extends Controller
             ]);
         }
 
-        $perms = $collab->role === 'custom' && is_array($collab->permissions)
-            ? $collab->permissions
-            : OwnerCollaborator::defaultPermissionsForRole($collab->role);
+        $perms = $collab->getEffectivePermissions();
 
         return response()->json([
             'is_super_admin' => false,
             'is_owner'       => true,
             'role'           => $collab->role,
-            'role_label'     => $this->getRoleLabel($collab->role),
+            'role_label'     => $this->getRoleLabel($collab->role, $owner),
             'permissions'    => $perms,
         ]);
     }
@@ -433,7 +429,9 @@ class OwnerTeamController extends Controller
             'owner_id'        => $owner->id,
             'user_id'         => $targetUser->id,
             'role'            => $validated['role'],
-            'permissions'     => $validated['role'] === 'custom' ? ($validated['permissions'] ?? []) : null,
+            'permissions'     => isset($validated['permissions']) && is_array($validated['permissions'])
+                ? array_values($validated['permissions'])
+                : null,
             'additional_info' => $validated['additional_info'] ?? null,
             'is_active'       => true,
             'invited_by'      => $user->id,
@@ -449,9 +447,7 @@ class OwnerTeamController extends Controller
                 'phone'           => $targetUser->phone,
                 'role'            => $collab->role,
                 'role_label'      => $this->getRoleLabel($collab->role, $owner),
-                'permissions'     => $collab->role === 'custom' && is_array($collab->permissions)
-                    ? $collab->permissions
-                    : $owner->getRolePermissions($collab->role),
+                'permissions'     => $collab->getEffectivePermissions(),
                 'additional_info' => $collab->additional_info,
                 'is_active'       => $collab->is_active,
                 'is_primary'      => false,
@@ -502,7 +498,15 @@ class OwnerTeamController extends Controller
 
         if (isset($validated['role'])) {
             $collab->role = $validated['role'];
-            $collab->permissions = $validated['role'] === 'custom' ? ($validated['permissions'] ?? []) : null;
+        }
+
+        if (array_key_exists('permissions', $validated)) {
+            $perms = is_array($validated['permissions']) ? array_values($validated['permissions']) : null;
+            // Empêcher un collaborateur de se retirer accidentellement son propre droit team:manage
+            if ($collab->user_id === $user->id && is_array($perms) && !in_array('team:manage', $perms, true)) {
+                $perms[] = 'team:manage';
+            }
+            $collab->permissions = $perms;
         }
 
         if (isset($validated['is_active'])) {
@@ -526,9 +530,7 @@ class OwnerTeamController extends Controller
                 'phone'           => $collab->user?->phone,
                 'role'            => $collab->role,
                 'role_label'      => $this->getRoleLabel($collab->role, $owner),
-                'permissions'     => $collab->role === 'custom' && is_array($collab->permissions)
-                    ? $collab->permissions
-                    : $owner->getRolePermissions($collab->role),
+                'permissions'     => $collab->getEffectivePermissions(),
                 'additional_info' => $collab->additional_info,
                 'is_active'       => $collab->is_active,
                 'is_primary'      => false,

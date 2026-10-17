@@ -125,6 +125,22 @@ class OwnerCollaborator extends Model
     }
 
     /**
+     * Retourne la liste effective des permissions du collaborateur
+     */
+    public function getEffectivePermissions(): array
+    {
+        if (is_array($this->permissions) && ($this->role === 'custom' || count($this->permissions) > 0)) {
+            return array_values($this->permissions);
+        }
+
+        if ($this->owner) {
+            return $this->owner->getRolePermissions($this->role);
+        }
+
+        return self::defaultPermissionsForRole($this->role);
+    }
+
+    /**
      * Vérifie si le collaborateur possède une permission précise
      */
     public function hasPermission(string $permission): bool
@@ -133,20 +149,19 @@ class OwnerCollaborator extends Model
             return false;
         }
 
-        if ($this->role === 'manager' || $this->role === 'owner_master') {
+        if ($this->role === 'owner_master') {
             return true;
         }
 
-        if ($this->role === 'custom' && is_array($this->permissions)) {
-            return in_array($permission, $this->permissions, true);
+        $perms = $this->getEffectivePermissions();
+        if (in_array($permission, $perms, true)) {
+            return true;
         }
 
-        if ($this->owner) {
-            $perms = $this->owner->getRolePermissions($this->role);
-            return in_array($permission, $perms, true);
+        if ($this->role === 'manager' && !is_array($this->permissions)) {
+            return true;
         }
 
-        $perms = self::defaultPermissionsForRole($this->role);
-        return in_array($permission, $perms, true);
+        return false;
     }
 }

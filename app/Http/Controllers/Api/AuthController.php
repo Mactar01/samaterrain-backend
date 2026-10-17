@@ -281,9 +281,7 @@ class AuthController extends Controller
 
             $perms = ($user->isAdmin() || $isPrimary)
                 ? array_column(\App\Models\OwnerCollaborator::availablePermissions(), 'key')
-                : ($collab ? ($collab->role === 'custom' && is_array($collab->permissions) 
-                    ? $collab->permissions 
-                    : $owner->getRolePermissions($collab->role)) : []);
+                : ($collab ? $collab->getEffectivePermissions() : []);
 
             $roleKey = $isPrimary ? 'owner_master' : ($collab?->role ?? 'collaborator');
             $roleLabels = [
